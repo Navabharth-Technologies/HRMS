@@ -1,29 +1,56 @@
 
 import { useState } from "react";
+import {
+  ShieldCheck,
+  ShieldPlus,
+  Trash2,
+  Users,
+  X,
+  Search,
+  LockKeyhole,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+
 import "./RoleManagement.css";
 
 const modules = [
-  "Admin Management",
-  "Roles & Permissions",
-  "Employees",
-  "Attendance",
-  "Payroll",
+  {
+    name: "Admin Management",
+    description: "Manage administrator records.",
+  },
+  {
+    name: "Roles & Permissions",
+    description: "Configure roles and module permissions.",
+  },
+  {
+    name: "Employees",
+    description: "Manage employee records.",
+  },
+  {
+    name: "Attendance",
+    description: "Manage employee attendance.",
+  },
+  {
+    name: "Payroll",
+    description: "Manage salaries and payroll records.",
+  },
 ];
 
 function RoleManagement({ roles, setRoles, admins }) {
   const [showForm, setShowForm] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [selectedModules, setSelectedModules] = useState([]);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   function toggleModule(moduleName) {
-    if (selectedModules.includes(moduleName)) {
-      setSelectedModules(
-        selectedModules.filter((item) => item !== moduleName)
-      );
-    } else {
-      setSelectedModules([...selectedModules, moduleName]);
-    }
+    setSelectedModules((previous) =>
+      previous.includes(moduleName)
+        ? previous.filter((item) => item !== moduleName)
+        : [...previous, moduleName]
+    );
 
     setError("");
   }
@@ -44,7 +71,8 @@ function RoleManagement({ roles, setRoles, admins }) {
     }
 
     const alreadyExists = roles.some(
-      (role) => role.name.toLowerCase() === name.toLowerCase()
+      (role) =>
+        role.name.toLowerCase() === name.toLowerCase()
     );
 
     if (alreadyExists) {
@@ -54,75 +82,129 @@ function RoleManagement({ roles, setRoles, admins }) {
 
     const newRole = {
       id: crypto.randomUUID(),
-      name: name,
+      name,
       permissions: [...selectedModules],
     };
 
-    setRoles((currentRoles) => [...currentRoles, newRole]);
+    setRoles((currentRoles) => [
+      ...currentRoles,
+      newRole,
+    ]);
 
     setRoleName("");
     setSelectedModules([]);
     setError("");
+    setSearch("");
     setShowForm(false);
+
+    setSuccess(`${name} has been created successfully.`);
   }
 
   function getAssignedCount(roleId) {
     return admins.filter(
-      (admin) => String(admin.roleId) === String(roleId)
+      (admin) =>
+        String(admin.roleId) === String(roleId)
     ).length;
   }
 
-  function deleteRole(id) {
-    const assignedCount = getAssignedCount(id);
+  function deleteRole(role) {
+    const assignedCount = getAssignedCount(role.id);
 
     if (assignedCount > 0) {
       window.alert(
-        `Cannot delete this role. It is assigned to ${assignedCount} administrator(s).`
+        `Cannot delete ${role.name}. This role is assigned to ${assignedCount} administrator(s).`
       );
+
       return;
     }
 
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this role?"
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${role.name}?`
     );
 
-    if (!confirmDelete) {
-      return;
-    }
+    if (!confirmed) return;
 
     setRoles((currentRoles) =>
-      currentRoles.filter((role) => role.id !== id)
+      currentRoles.filter(
+        (item) => item.id !== role.id
+      )
     );
+
+    setSuccess(`${role.name} has been deleted.`);
   }
 
   function toggleForm() {
-    setShowForm(!showForm);
+    setShowForm((previous) => !previous);
     setRoleName("");
     setSelectedModules([]);
     setError("");
+    setSuccess("");
   }
+
+  const keyword = search.trim().toLowerCase();
+
+  const filteredRoles = roles.filter(
+    (role) =>
+      role.name.toLowerCase().includes(keyword) ||
+      role.permissions.some((permission) =>
+        permission.toLowerCase().includes(keyword)
+      )
+  );
 
   return (
     <div className="role-page">
-      <div className="role-page-heading">
-        <div>
-          <h1>Roles & Permissions</h1>
-          <p>Create administrator roles and configure module access.</p>
+
+      {/* Success message */}
+      {success && (
+        <div className="role-success" role="status">
+          <CheckCircle2 size={18} />
+
+          <span>{success}</span>
+
+          <button
+            type="button"
+            onClick={() => setSuccess("")}
+            aria-label="Dismiss message"
+          >
+            <X size={16} />
+          </button>
         </div>
+      )}
 
-        <button className="primary-btn" onClick={toggleForm}>
-          {showForm ? "Cancel" : "+ Create Role"}
-        </button>
-      </div>
-
+      {/* Create role form */}
       {showForm && (
         <div className="role-form-card">
-          <h3>Create New Role</h3>
-          <p>Choose a name and select the modules this role can access.</p>
+          <div className="role-form-heading">
+            <div className="role-heading-group">
+              <div className="role-heading-icon">
+                <ShieldPlus size={21} />
+              </div>
+
+              <div>
+                <h3>Create Role</h3>
+
+                <p>
+                  Define a role and select its module permissions.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="role-close-btn"
+              onClick={toggleForm}
+              aria-label="Close form"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
           <form onSubmit={handleSubmit}>
             <div className="role-field">
-              <label htmlFor="role-name">Role Name</label>
+              <label htmlFor="role-name">
+                Role Name
+              </label>
+
               <input
                 id="role-name"
                 type="text"
@@ -132,78 +214,271 @@ function RoleManagement({ roles, setRoles, admins }) {
                   setError("");
                 }}
                 placeholder="Example: HR Manager"
+                autoFocus
               />
             </div>
 
-            <div className="permission-section">
-              <h4>Module Permissions</h4>
-              <p>Select the modules available to this role.</p>
+            <div className="role-permission-section">
+              <div className="role-permission-heading">
+                <div>
+                  <h4>Module Permissions</h4>
 
-              <div className="permission-grid">
-                {modules.map((moduleName) => (
-                  <label className="permission-option" key={moduleName}>
+                  <p>
+                    Choose which modules this role can access.
+                  </p>
+                </div>
+
+                <span className="role-selected-count">
+                  {selectedModules.length} selected
+                </span>
+              </div>
+
+              <div className="role-permission-grid">
+                {modules.map((module) => (
+                  <label
+                    key={module.name}
+                    className={`role-permission-option ${
+                      selectedModules.includes(module.name)
+                        ? "selected"
+                        : ""
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={selectedModules.includes(moduleName)}
-                      onChange={() => toggleModule(moduleName)}
+                      checked={selectedModules.includes(
+                        module.name
+                      )}
+                      onChange={() =>
+                        toggleModule(module.name)
+                      }
                     />
-                    <span>{moduleName}</span>
+
+                    <div>
+                      <strong>{module.name}</strong>
+                      <small>{module.description}</small>
+                    </div>
                   </label>
                 ))}
               </div>
             </div>
 
             {error && (
-              <p className="role-error" role="alert">
-                {error}
-              </p>
+              <div className="role-error" role="alert">
+                <AlertCircle size={17} />
+                <span>{error}</span>
+              </div>
             )}
 
-            <button type="submit" className="primary-btn">
-              Save Role
-            </button>
+            <div className="role-form-actions">
+              <button
+                type="button"
+                className="role-secondary-btn"
+                onClick={toggleForm}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="role-primary-btn"
+              >
+                <ShieldPlus size={17} />
+                Save Role
+              </button>
+            </div>
           </form>
         </div>
       )}
 
+      {/* Existing roles */}
       <div className="role-list-card">
         <div className="role-list-header">
-          <div>
-            <h3>Existing Roles</h3>
-            <p>{roles.length} roles configured</p>
-          </div>
-        </div>
-
-        {roles.length === 0 && (
-          <p className="role-empty">No roles have been created.</p>
-        )}
-
-        {roles.map((role) => (
-          <div className="role-item" key={role.id}>
-            <div className="role-details">
-              <h4>{role.name}</h4>
-
-              <p className="role-assigned-count">
-                {getAssignedCount(role.id)} administrator(s) assigned
-              </p>
-
-              <div className="role-permissions">
-                {role.permissions.map((permission) => (
-                  <span className="permission-badge" key={permission}>
-                    {permission}
-                  </span>
-                ))}
-              </div>
+          <div className="role-heading-group">
+            <div className="role-heading-icon">
+              <ShieldCheck size={21} />
             </div>
 
-            <button
-              className="delete-role-btn"
-              onClick={() => deleteRole(role.id)}
-            >
-              Delete
-            </button>
+            <div>
+              <h3>Roles & Permissions</h3>
+
+              <p>
+                {roles.length} roles configured
+              </p>
+            </div>
           </div>
-        ))}
+
+          <button
+            type="button"
+            className="role-primary-btn"
+            onClick={toggleForm}
+          >
+            {showForm ? (
+              <X size={17} />
+            ) : (
+              <ShieldPlus size={17} />
+            )}
+
+            {showForm ? "Cancel" : "Create Role"}
+          </button>
+        </div>
+
+        <div className="role-toolbar">
+          <div className="role-search-wrapper">
+            <Search size={17} />
+
+            <input
+              type="text"
+              placeholder="Search roles or permissions..."
+              aria-label="Search roles"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+            />
+
+            {search && (
+              <button
+                type="button"
+                className="role-close-btn"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
+          <span className="role-result-count">
+            Showing {filteredRoles.length} of {roles.length}
+          </span>
+        </div>
+
+        <div className="role-table-scroll">
+          <table className="role-table">
+            <thead>
+              <tr>
+                <th scope="col">Role Name</th>
+                <th scope="col">Module Permissions</th>
+                <th scope="col">Assigned Admins</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredRoles.map((role) => {
+                const assignedCount =
+                  getAssignedCount(role.id);
+
+                return (
+                  <tr key={role.id}>
+                    <td>
+                      <div className="role-identity">
+                        <div className="role-table-icon">
+                          <ShieldCheck size={18} />
+                        </div>
+
+                        <span>{role.name}</span>
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="role-permissions">
+                        {role.permissions.map((permission) => (
+                          <span
+                            className="role-permission-badge"
+                            key={permission}
+                          >
+                            {permission}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+
+                    <td>
+                      <span className="role-assigned-count">
+                        <Users size={15} />
+
+                        {assignedCount}{" "}
+                        {assignedCount === 1
+                          ? "admin"
+                          : "admins"}
+                      </span>
+                    </td>
+
+                    <td>
+                      {assignedCount > 0 ? (
+                        <span
+                          className="role-protected"
+                          title="This role cannot be deleted while assigned to an administrator."
+                        >
+                          <LockKeyhole size={14} />
+                          In use
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="role-delete-btn"
+                          onClick={() => deleteRole(role)}
+                          aria-label={`Delete ${role.name}`}
+                        >
+                          <Trash2 size={15} />
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {filteredRoles.length === 0 && (
+                <tr>
+                  <td colSpan="4">
+                    <div className="role-empty">
+                      <div className="role-empty-icon">
+                        {search ? (
+                          <Search size={25} />
+                        ) : (
+                          <ShieldCheck size={25} />
+                        )}
+                      </div>
+
+                      <h4>
+                        {search
+                          ? "No matching roles"
+                          : "No roles configured"}
+                      </h4>
+
+                      <p>
+                        {search
+                          ? "Try a different role name or permission."
+                          : "Create your first role to assign module permissions."}
+                      </p>
+
+                      {search && (
+                        <button
+                          type="button"
+                          className="role-secondary-btn"
+                          onClick={() => setSearch("")}
+                        >
+                          Clear Search
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="role-info">
+          <LockKeyhole size={15} />
+
+          <span>
+            Roles assigned to administrators are protected
+            from deletion.
+          </span>
+        </div>
       </div>
     </div>
   );

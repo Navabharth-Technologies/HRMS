@@ -1,24 +1,39 @@
 
 import { useState } from "react";
+import {
+  UserPlus,
+  Search,
+  UserCheck,
+  UserX,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Users,
+  ShieldCheck,
+} from "lucide-react";
+
 import "./AdminManagement.css";
+
+const emptyForm = {
+  name: "",
+  email: "",
+  role: "",
+};
 
 function AdminManagement({ roles, admins, setAdmins }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    role: "",
-  });
+  const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   function handleChange(event) {
     const { name, value } = event.target;
 
-    setForm({
-      ...form,
+    setForm((previous) => ({
+      ...previous,
       [name]: value,
-    });
+    }));
 
     setError("");
   }
@@ -62,36 +77,49 @@ function AdminManagement({ roles, admins, setAdmins }) {
 
     const newAdmin = {
       id: crypto.randomUUID(),
-      name: name,
-      email: email,
+      name,
+      email,
       roleId: String(selectedRole.id),
       status: "Active",
     };
 
-    setAdmins((currentAdmins) => [...currentAdmins, newAdmin]);
+    setAdmins((currentAdmins) => [
+      ...currentAdmins,
+      newAdmin,
+    ]);
 
-    setForm({
-      name: "",
-      email: "",
-      role: "",
-    });
-
+    setForm(emptyForm);
     setError("");
+    setSearch("");
     setShowForm(false);
+
+    setSuccess(`${name} has been added successfully.`);
   }
 
-  function toggleStatus(id) {
-    setAdmins((currentAdmins) =>
-      currentAdmins.map((admin) => {
-        if (admin.id === id) {
-          return {
-            ...admin,
-            status: admin.status === "Active" ? "Inactive" : "Active",
-          };
-        }
+  function toggleStatus(admin) {
+    const newStatus =
+      admin.status === "Active" ? "Inactive" : "Active";
 
-        return admin;
-      })
+    if (newStatus === "Inactive") {
+      const confirmed = window.confirm(
+        `Are you sure you want to deactivate ${admin.name}?`
+      );
+
+      if (!confirmed) return;
+    }
+
+    setAdmins((currentAdmins) =>
+      currentAdmins.map((item) =>
+        item.id === admin.id
+          ? { ...item, status: newStatus }
+          : item
+      )
+    );
+
+    setSuccess(
+      `${admin.name} has been ${
+        newStatus === "Active" ? "activated" : "deactivated"
+      } successfully.`
     );
   }
 
@@ -103,10 +131,21 @@ function AdminManagement({ roles, admins, setAdmins }) {
     return role ? role.name : "Unassigned";
   }
 
+  function getInitials(name) {
+    return name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((word) => word.charAt(0))
+      .join("")
+      .toUpperCase();
+  }
+
   function toggleForm() {
-    setShowForm(!showForm);
-    setForm({ name: "", email: "", role: "" });
+    setShowForm((previous) => !previous);
+    setForm(emptyForm);
     setError("");
+    setSuccess("");
   }
 
   const keyword = search.trim().toLowerCase();
@@ -121,28 +160,66 @@ function AdminManagement({ roles, admins, setAdmins }) {
     );
   });
 
+  const activeCount = admins.filter(
+    (admin) => admin.status === "Active"
+  ).length;
+
+  const inactiveCount = admins.length - activeCount;
+
   return (
     <div className="admin-page">
-      <div className="admin-page-heading">
-        <div>
-          <h1>Admin Management</h1>
-          <p>Manage administrators and assign their roles.</p>
+
+      {/* Success message */}
+      {success && (
+        <div className="admin-success" role="status">
+          <CheckCircle2 size={18} />
+
+          <span>{success}</span>
+
+          <button
+            type="button"
+            onClick={() => setSuccess("")}
+            aria-label="Dismiss message"
+          >
+            <X size={16} />
+          </button>
         </div>
+      )}
 
-        <button className="admin-primary-btn" onClick={toggleForm}>
-          {showForm ? "Cancel" : "+ Add Admin"}
-        </button>
-      </div>
-
+      {/* Add administrator form */}
       {showForm && (
         <div className="admin-form-card">
-          <h3>Add New Administrator</h3>
-          <p>Enter administrator details and assign a role.</p>
+          <div className="admin-form-heading">
+            <div className="admin-heading-group">
+              <div className="admin-heading-icon">
+                <UserPlus size={20} />
+              </div>
+
+              <div>
+                <h3>Add Administrator</h3>
+                <p>
+                  Enter administrator details and assign a role.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="admin-close-btn"
+              onClick={toggleForm}
+              aria-label="Close form"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="admin-form-grid">
               <div className="admin-field">
-                <label htmlFor="admin-name">Full Name</label>
+                <label htmlFor="admin-name">
+                  Full Name
+                </label>
+
                 <input
                   id="admin-name"
                   name="name"
@@ -150,11 +227,16 @@ function AdminManagement({ roles, admins, setAdmins }) {
                   value={form.name}
                   onChange={handleChange}
                   placeholder="Enter full name"
+                  autoComplete="name"
+                  autoFocus
                 />
               </div>
 
               <div className="admin-field">
-                <label htmlFor="admin-email">Email Address</label>
+                <label htmlFor="admin-email">
+                  Email Address
+                </label>
+
                 <input
                   id="admin-email"
                   name="email"
@@ -162,11 +244,15 @@ function AdminManagement({ roles, admins, setAdmins }) {
                   value={form.email}
                   onChange={handleChange}
                   placeholder="Enter email address"
+                  autoComplete="email"
                 />
               </div>
 
               <div className="admin-field">
-                <label htmlFor="admin-role">Assign Role</label>
+                <label htmlFor="admin-role">
+                  Assign Role
+                </label>
+
                 <select
                   id="admin-role"
                   name="role"
@@ -176,77 +262,183 @@ function AdminManagement({ roles, admins, setAdmins }) {
                   <option value="">Select a role</option>
 
                   {roles.map((role) => (
-                    <option key={role.id} value={String(role.id)}>
+                    <option
+                      key={role.id}
+                      value={String(role.id)}
+                    >
                       {role.name}
                     </option>
                   ))}
                 </select>
+
+                {roles.length === 0 && (
+                  <small>
+                    Create a role before adding an administrator.
+                  </small>
+                )}
               </div>
             </div>
 
             {error && (
-              <p className="admin-error" role="alert">
-                {error}
-              </p>
+              <div className="admin-error" role="alert">
+                <AlertCircle size={17} />
+                <span>{error}</span>
+              </div>
             )}
 
-            <button className="admin-primary-btn" type="submit">
-              Save Administrator
-            </button>
+            <div className="admin-form-actions">
+              <button
+                type="button"
+                className="admin-secondary-btn"
+                onClick={toggleForm}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="admin-primary-btn"
+                type="submit"
+              >
+                <UserPlus size={16} />
+                Save Administrator
+              </button>
+            </div>
           </form>
         </div>
       )}
 
+      {/* Administrators table */}
       <div className="admin-table-card">
         <div className="admin-table-heading">
-          <div>
-            <h3>Administrators</h3>
-            <p>{admins.length} administrator(s) registered</p>
+          <div className="admin-heading-group">
+            <div className="admin-heading-icon">
+              <Users size={21} />
+            </div>
+
+            <div>
+              <h3>Administrators</h3>
+
+              <p>
+                {admins.length} total · {activeCount} active ·{" "}
+                {inactiveCount} inactive
+              </p>
+            </div>
           </div>
 
-          <input
-            className="admin-search"
-            type="text"
-            placeholder="Search administrators..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+          <button
+            type="button"
+            className="admin-primary-btn"
+            onClick={toggleForm}
+          >
+            {showForm ? (
+              <X size={17} />
+            ) : (
+              <UserPlus size={17} />
+            )}
+
+            {showForm ? "Cancel" : "Add Admin"}
+          </button>
+        </div>
+
+        <div className="admin-toolbar">
+          <div className="admin-search-wrapper">
+            <Search size={17} />
+
+            <input
+              className="admin-search"
+              type="text"
+              placeholder="Search by name, email or role..."
+              aria-label="Search administrators"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+            />
+
+            {search && (
+              <button
+                type="button"
+                className="admin-clear-search"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
+          <span className="admin-result-count">
+            Showing {filteredAdmins.length} of {admins.length}
+          </span>
         </div>
 
         <div className="admin-table-scroll">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th scope="col">Administrator</th>
+                <th scope="col">Email Address</th>
+                <th scope="col">Assigned Role</th>
+                <th scope="col">Status</th>
+                <th scope="col">Action</th>
               </tr>
             </thead>
 
             <tbody>
               {filteredAdmins.map((admin) => (
                 <tr key={admin.id}>
-                  <td className="admin-name">{admin.name}</td>
-                  <td>{admin.email}</td>
-                  <td>{getRoleName(admin.roleId)}</td>
+                  <td>
+                    <div className="admin-person">
+                      <div className="admin-avatar">
+                        {getInitials(admin.name)}
+                      </div>
+
+                      <span className="admin-name">
+                        {admin.name}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="admin-email">
+                    {admin.email}
+                  </td>
+
+                  <td>
+                    <span className="admin-role-tag">
+                      <ShieldCheck size={14} />
+                      {getRoleName(admin.roleId)}
+                    </span>
+                  </td>
+
                   <td>
                     <span
-                      className={
+                      className={`admin-status ${
                         admin.status === "Active"
-                          ? "admin-status active"
-                          : "admin-status inactive"
-                      }
+                          ? "active"
+                          : "inactive"
+                      }`}
                     >
+                      <span className="admin-status-dot" />
                       {admin.status}
                     </span>
                   </td>
+
                   <td>
                     <button
-                      className="status-btn"
-                      onClick={() => toggleStatus(admin.id)}
+                      type="button"
+                      className={`admin-status-btn ${
+                        admin.status === "Active"
+                          ? "deactivate"
+                          : "activate"
+                      }`}
+                      onClick={() => toggleStatus(admin)}
                     >
+                      {admin.status === "Active" ? (
+                        <UserX size={15} />
+                      ) : (
+                        <UserCheck size={15} />
+                      )}
+
                       {admin.status === "Active"
                         ? "Deactivate"
                         : "Activate"}
@@ -257,8 +449,38 @@ function AdminManagement({ roles, admins, setAdmins }) {
 
               {filteredAdmins.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="admin-empty">
-                    No administrators found.
+                  <td colSpan="5">
+                    <div className="admin-empty">
+                      <div className="admin-empty-icon">
+                        {search ? (
+                          <Search size={25} />
+                        ) : (
+                          <Users size={25} />
+                        )}
+                      </div>
+
+                      <h4>
+                        {search
+                          ? "No matching administrators"
+                          : "No administrators yet"}
+                      </h4>
+
+                      <p>
+                        {search
+                          ? "Try searching with a different name, email or role."
+                          : "Add your first administrator to get started."}
+                      </p>
+
+                      {search && (
+                        <button
+                          type="button"
+                          className="admin-secondary-btn"
+                          onClick={() => setSearch("")}
+                        >
+                          Clear Search
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )}
