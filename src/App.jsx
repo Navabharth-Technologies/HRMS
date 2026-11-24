@@ -1,5 +1,16 @@
 
 import { useState } from "react";
+import {
+  House,
+  ShieldCheck,
+  Users,
+  Wallet,
+  UserCheck,
+  Clock,
+  ArrowRight,
+  CalendarDays,
+} from "lucide-react";
+
 import AdminManagement from "./pages/AdminManagement";
 import RoleManagement from "./pages/RoleManagement";
 import EmployeeManagement from "./pages/EmployeeManagement";
@@ -7,35 +18,14 @@ import AttendanceManagement from "./pages/AttendanceManagement";
 import ShiftManagement from "./pages/ShiftManagement";
 import OvertimeManagement from "./pages/OvertimeManagement";
 import PayrollManagement from "./pages/PayrollManagement";
+
 import "./App.css";
 
 const menuItems = [
-  { icon: "▦", name: "Dashboard" },
-  { icon: "♙", name: "Admin Management" },
-  { icon: "⚙", name: "Roles & Permissions" },
-  { icon: "♧", name: "Employees" },
-  { icon: "◷", name: "Attendance" },
-  { icon: "▤", name: "Shift Management" },
-  { icon: "◴", name: "Overtime" },
-  { icon: "▤", name: "Payroll" },
-];
-
-const activities = [
-  {
-    name: "Employee record updated",
-    by: "HR Admin",
-    time: "10:30 AM",
-  },
-  {
-    name: "Attendance correction requested",
-    by: "Attendance Admin",
-    time: "09:45 AM",
-  },
-  {
-    name: "New administrator added",
-    by: "Super Admin",
-    time: "Yesterday",
-  },
+  { icon: House, name: "Dashboard" },
+  { icon: ShieldCheck, name: "Admins" },
+  { icon: Users, name: "Employees" },
+  { icon: Wallet, name: "Payroll" },
 ];
 
 const initialRoles = [
@@ -137,23 +127,29 @@ function getToday() {
 }
 
 function App() {
+  // Navigation
   const [activePage, setActivePage] = useState("Dashboard");
 
+  const [adminTab, setAdminTab] = useState("Administrators");
+  const [employeeTab, setEmployeeTab] = useState("Employee List");
+
+  // Admin and employee data
   const [roles, setRoles] = useState(initialRoles);
   const [admins, setAdmins] = useState(initialAdmins);
   const [employees, setEmployees] = useState(initialEmployees);
 
+  // Attendance
   const [attendance, setAttendance] = useState([]);
-  const [correctionRequests, setCorrectionRequests] =
-    useState([]);
+  const [correctionRequests, setCorrectionRequests] = useState([]);
 
+  // Shifts
   const [shifts, setShifts] = useState([]);
-  const [shiftAssignments, setShiftAssignments] =
-    useState([]);
+  const [shiftAssignments, setShiftAssignments] = useState([]);
 
-  const [overtimeRequests, setOvertimeRequests] =
-    useState([]);
+  // Overtime
+  const [overtimeRequests, setOvertimeRequests] = useState([]);
 
+  // Payroll
   const [salaryRecords, setSalaryRecords] = useState([]);
 
   const [salaryComponents, setSalaryComponents] = useState([
@@ -161,8 +157,11 @@ function App() {
     { id: "hra", name: "HRA", type: "Earning" },
     { id: "allowance", name: "Other Allowance", type: "Earning" },
   ]);
+
+  // Employee loans
   const [employeeLoans, setEmployeeLoans] = useState([]);
 
+  // Dashboard counts
   const activeAdmins = admins.filter(
     (admin) => admin.status === "Active"
   ).length;
@@ -177,156 +176,261 @@ function App() {
     (request) => request.status === "Pending"
   ).length;
 
-  const stats = [
-    {
-      title: "Total Employees",
-      value: String(employees.length).padStart(2, "0"),
-      detail: "Registered employees",
-    },
-    {
-      title: "Active Admins",
-      value: String(activeAdmins).padStart(2, "0"),
-      detail: "System administrators",
-    },
-    {
-      title: "Present Today",
-      value: String(presentToday).padStart(2, "0"),
-      detail: "Attendance recorded today",
-    },
-    {
-      title: "Pending OT",
-      value: String(pendingOvertime).padStart(2, "0"),
-      detail: "Overtime awaiting approval",
-    },
-  ];
+  const today = new Date().toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
+  function navigate(page) {
+    setActivePage(page);
+    window.scrollTo(0, 0);
+  }
+
+  function openAdminTab(tab) {
+    setAdminTab(tab);
+    navigate("Admins");
+  }
+
+  function openEmployeeTab(tab) {
+    setEmployeeTab(tab);
+    navigate("Employees");
+  }
+
+  // Dashboard
   function renderDashboard() {
+    const stats = [
+      {
+        title: "Total Employees",
+        value: employees.length,
+        icon: Users,
+        color: "indigo",
+        action: () => openEmployeeTab("Employee List"),
+      },
+      {
+        title: "Present Today",
+        value: presentToday,
+        icon: UserCheck,
+        color: "green",
+        action: () => openEmployeeTab("Attendance"),
+      },
+      {
+        title: "Active Admins",
+        value: activeAdmins,
+        icon: ShieldCheck,
+        color: "indigo",
+        action: () => openAdminTab("Administrators"),
+      },
+      {
+        title: "Pending Overtime",
+        value: pendingOvertime,
+        icon: Clock,
+        color: "indigo",
+        action: () => openEmployeeTab("Overtime"),
+      },
+    ];
+
+    const modules = [
+      {
+        title: "Admins",
+        icon: ShieldCheck,
+        description:
+          "Manage administrators, assign roles and control access permissions.",
+        action: () => openAdminTab("Administrators"),
+      },
+      {
+        title: "Employees",
+        icon: Users,
+        description:
+          "Manage employee records, daily attendance, shifts and working hours.",
+        action: () => openEmployeeTab("Employee List"),
+      },
+      {
+        title: "Payroll",
+        icon: Wallet,
+        description:
+          "Manage salary structures and employee loans.",
+        action: () => navigate("Payroll"),
+      },
+    ];
+
     return (
-      <>
-        <div className="welcome">
+      <div className="hrms-dashboard">
+        <div className="dashboard-heading">
           <div>
-            <h1>Good to have you here.</h1>
+            <h1>Dashboard</h1>
             <p>
-              Here's an overview of your HR management system.
+              Manage your workforce, attendance and payroll
+              from one place.
             </p>
           </div>
 
-          <span className="demo-tag">Demo Data</span>
-        </div>
+          <div className="dashboard-meta">
+            <span className="dashboard-date">
+              <CalendarDays size={16} />
+              {today}
+            </span>
 
-        <div className="cards">
-          {stats.map((item) => (
-            <div className="card" key={item.title}>
-              <p className="stat-title">{item.title}</p>
-              <h2>{item.value}</h2>
-              <span className="stat-detail">
-                {item.detail}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="dashboard-grid">
-          <div className="panel">
-            <div className="panel-heading">
-              <h3>Quick Actions</h3>
-              <p>Frequently used management tasks</p>
-            </div>
-
-            <div className="action-list">
-              <button
-                onClick={() =>
-                  setActivePage("Admin Management")
-                }
-              >
-                <span>+ Add Administrator</span>
-                <span>→</span>
-              </button>
-
-              <button
-                onClick={() => setActivePage("Employees")}
-              >
-                <span>+ Add Employee</span>
-                <span>→</span>
-              </button>
-
-              <button
-                onClick={() =>
-                  setActivePage("Biometric Attendance")
-                }
-              >
-                <span>Import Biometric Attendance</span>
-                <span>→</span>
-              </button>
-
-              <button
-                onClick={() => setActivePage("Overtime")}
-              >
-                <span>Review Overtime</span>
-                <span>→</span>
-              </button>
-            </div>
+            <span className="demo-tag">Demo Mode</span>
           </div>
+        </div>
 
-          <div className="panel">
-            <div className="panel-heading">
-              <h3>Recent Activity</h3>
-              <p>Latest updates in the system</p>
-            </div>
+        {/* Statistics cards */}
+        <div className="dashboard-stats">
+          {stats.map((item) => {
+            const Icon = item.icon;
 
-            <div className="activity-list">
-              {activities.map((activity, index) => (
-                <div className="activity" key={index}>
-                  <span className="activity-dot"></span>
-
-                  <div>
-                    <strong>{activity.name}</strong>
-                    <p>
-                      {activity.by} · {activity.time}
-                    </p>
+            return (
+              <button
+                type="button"
+                className="dashboard-stat"
+                key={item.title}
+                onClick={item.action}
+              >
+                <div className="stat-top">
+                  <div className={`stat-icon ${item.color}`}>
+                    <Icon size={20} strokeWidth={1.8} />
                   </div>
+
+                  <ArrowRight
+                    size={15}
+                    className="stat-arrow"
+                  />
                 </div>
-              ))}
-            </div>
-          </div>
+
+                <strong className="stat-number">
+                  {String(item.value).padStart(2, "0")}
+                </strong>
+
+                <span className="stat-label">
+                  {item.title}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      </>
+
+        {/* Main modules */}
+        <div className="dashboard-section-heading">
+          <h2>Management Modules</h2>
+          <p>Select a module to manage your organization.</p>
+        </div>
+
+        <div className="module-cards">
+          {modules.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <button
+                type="button"
+                className="module-card"
+                key={item.title}
+                onClick={item.action}
+              >
+                <div className="module-icon">
+                  <Icon size={23} strokeWidth={1.8} />
+                </div>
+
+                <h3>{item.title}</h3>
+
+                <p className="module-description">
+                  {item.description}
+                </p>
+
+                <div className="module-footer">
+                  <span>Open module</span>
+                  <ArrowRight size={17} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     );
   }
 
-  function renderPage() {
-    switch (activePage) {
-      case "Dashboard":
-        return renderDashboard();
+  // Admin workspace
+  function renderAdmins() {
+    return (
+      <div className="hrms-workspace">
+        <div className="workspace-heading">
+          <h1>Admins</h1>
+          <p>
+            Manage administrators, roles and access permissions.
+          </p>
+        </div>
 
-      case "Admin Management":
-        return (
+        <div className="workspace-tabs">
+          {["Administrators", "Roles & Permissions"].map((tab) => (
+            <button
+              type="button"
+              key={tab}
+              className={adminTab === tab ? "active" : ""}
+              onClick={() => setAdminTab(tab)}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {adminTab === "Administrators" && (
           <AdminManagement
             roles={roles}
             admins={admins}
             setAdmins={setAdmins}
           />
-        );
+        )}
 
-      case "Roles & Permissions":
-        return (
+        {adminTab === "Roles & Permissions" && (
           <RoleManagement
             roles={roles}
             setRoles={setRoles}
             admins={admins}
           />
-        );
+        )}
+      </div>
+    );
+  }
 
-      case "Employees":
-        return (
+  // Employee workspace
+  function renderEmployees() {
+    const tabs = [
+      "Employee List",
+      "Attendance",
+      "Shifts",
+      "Overtime",
+    ];
+
+    return (
+      <div className="hrms-workspace">
+        <div className="workspace-heading">
+          <h1>Employees</h1>
+          <p>
+            Manage employee records, attendance and working hours.
+          </p>
+        </div>
+
+        <div className="workspace-tabs">
+          {tabs.map((tab) => (
+            <button
+              type="button"
+              key={tab}
+              className={employeeTab === tab ? "active" : ""}
+              onClick={() => setEmployeeTab(tab)}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {employeeTab === "Employee List" && (
           <EmployeeManagement
             employees={employees}
             setEmployees={setEmployees}
           />
-        );
+        )}
 
-      case "Attendance":
-        return (
+        {employeeTab === "Attendance" && (
           <AttendanceManagement
             employees={employees}
             attendance={attendance}
@@ -338,22 +442,9 @@ function App() {
             overtimeRequests={overtimeRequests}
             setOvertimeRequests={setOvertimeRequests}
           />
-        );
-      case "Biometric Attendance":
-        return (
-          <BiometricAttendance
-            employees={employees}
-            attendance={attendance}
-            setAttendance={setAttendance}
-            shifts={shifts}
-            shiftAssignments={shiftAssignments}
-            overtimeRequests={overtimeRequests}
-            setOvertimeRequests={setOvertimeRequests}
-          />
-        );
+        )}
 
-      case "Shift Management":
-        return (
+        {employeeTab === "Shifts" && (
           <ShiftManagement
             employees={employees}
             shifts={shifts}
@@ -362,10 +453,9 @@ function App() {
             setShiftAssignments={setShiftAssignments}
             attendance={attendance}
           />
-        );
+        )}
 
-      case "Overtime":
-        return (
+        {employeeTab === "Overtime" && (
           <OvertimeManagement
             employees={employees}
             attendance={attendance}
@@ -374,7 +464,22 @@ function App() {
             overtimeRequests={overtimeRequests}
             setOvertimeRequests={setOvertimeRequests}
           />
-        );
+        )}
+      </div>
+    );
+  }
+
+  // Display selected page
+  function renderPage() {
+    switch (activePage) {
+      case "Dashboard":
+        return renderDashboard();
+
+      case "Admins":
+        return renderAdmins();
+
+      case "Employees":
+        return renderEmployees();
 
       case "Payroll":
         return (
@@ -390,79 +495,90 @@ function App() {
         );
 
       default:
-        return (
-          <div className="panel empty-page">
-            <h3>{activePage}</h3>
-            <p>
-              This module will be developed in the next phase.
-            </p>
-          </div>
-        );
+        return renderDashboard();
     }
   }
 
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="brand">
+    <div
+      className={`app ${
+        activePage === "Dashboard"
+          ? "dashboard-view"
+          : "module-view"
+      }`}
+    >
+      {/* Header */}
+      <header className="hrms-header">
+        <button
+          type="button"
+          className="hrms-brand"
+          onClick={() => navigate("Dashboard")}
+          aria-label="Go to dashboard"
+        >
           <div className="brand-icon">H</div>
 
-          <div>
+          <div className="brand-text">
             <h2>HRMS</h2>
             <p>Management Portal</p>
           </div>
+        </button>
+
+        <div className="header-page-name">
+          Human Resource Management System
         </div>
 
-        <p className="menu-label">WORKSPACE</p>
-
-        <nav className="nav">
-          {menuItems.map((item) => (
-            <button
-              key={item.name}
-              className={
-                activePage === item.name
-                  ? "nav-item active"
-                  : "nav-item"
-              }
-              onClick={() => setActivePage(item.name)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              {item.name}
-            </button>
-          ))}
-        </nav>
-
-        <div className="sidebar-footer">
-          <div className="avatar">SA</div>
-
-          <div>
+        <div className="header-right">
+          <div className="header-user">
             <strong>Super Admin</strong>
             <small>System Administrator</small>
           </div>
+
+          <div className="header-avatar">SA</div>
         </div>
-      </aside>
+      </header>
 
+      {/* Main content */}
       <main className="main">
-        <header className="header">
-          <div>
-            <p className="breadcrumb">
-              Workspace / {activePage}
-            </p>
-            <h2>{activePage}</h2>
-          </div>
-
-          <div className="header-right">
-            <span className="role-tag">
-              Super Admin
-            </span>
-            <div className="header-avatar">SA</div>
-          </div>
-        </header>
-
         <section className="content">
           {renderPage()}
         </section>
       </main>
+
+      {/* Bottom navigation */}
+      <nav
+        className="bottom-nav"
+        aria-label="Main navigation"
+      >
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <button
+              type="button"
+              key={item.name}
+              className={
+                activePage === item.name
+                  ? "bottom-nav-item active"
+                  : "bottom-nav-item"
+              }
+              aria-current={
+                activePage === item.name ? "page" : undefined
+              }
+              onClick={() => navigate(item.name)}
+            >
+              <Icon
+                size={18}
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+
+              <span className="bottom-nav-label">
+                {item.name}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
