@@ -1,5 +1,15 @@
-
 import { useState } from "react";
+import {
+  Users,
+  UserCheck,
+  UserMinus,
+  Search,
+  Plus,
+  Eye,
+  Pencil,
+  ArrowLeft,
+} from "lucide-react";
+
 import "./EmployeeManagement.css";
 
 const departments = [
@@ -39,6 +49,7 @@ function createEmptyForm() {
 
 function EmployeeManagement({ employees, setEmployees }) {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [mode, setMode] = useState("list");
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(createEmptyForm);
@@ -278,33 +289,112 @@ function EmployeeManagement({ employees, setEmployees }) {
 
   const keyword = search.trim().toLowerCase();
 
-  const filteredEmployees = employees.filter((employee) =>
-    [
+  const activeCount = employees.filter(
+    (employee) => employee.status === "Active"
+  ).length;
+
+  const inactiveCount = employees.filter(
+    (employee) => employee.status === "Inactive"
+  ).length;
+
+  const filteredEmployees = employees.filter((employee) => {
+    const matchesSearch = [
       employee.id,
       employee.name,
       employee.email,
       employee.department,
       employee.designation,
-    ].some((value) => value.toLowerCase().includes(keyword))
-  );
+    ].some((value) =>
+      String(value || "").toLowerCase().includes(keyword)
+    );
+
+    const matchesStatus =
+      statusFilter === "All" ||
+      employee.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  function getInitials(name) {
+    return name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((word) => word.charAt(0).toUpperCase())
+      .join("");
+  }
+
+  const stats = [
+    {
+      title: "Total Employees",
+      value: employees.length,
+      icon: Users,
+      color: "indigo",
+      filter: "All",
+    },
+    {
+      title: "Active Employees",
+      value: activeCount,
+      icon: UserCheck,
+      color: "green",
+      filter: "Active",
+    },
+    {
+      title: "Inactive Employees",
+      value: inactiveCount,
+      icon: UserMinus,
+      color: "slate",
+      filter: "Inactive",
+    },
+  ];
 
   return (
     <div className="employee-page">
-      <div className="employee-page-heading">
-        <div>
-          <h1>Employee Management</h1>
-          <p>Manage employee profiles and employment details.</p>
-        </div>
 
-        <button
-          className="employee-primary-btn"
-          onClick={mode === "list" ? openAddForm : closePanel}
-        >
-          {mode === "list" ? "+ Add Employee" : "Back to Employees"}
-        </button>
-      </div>
+      {mode === "list" ? (
+        <div className="employee-overview">
+          {stats.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <button
+                type="button"
+                key={item.title}
+                className={`employee-stat ${statusFilter === item.filter ? "selected" : ""
+                  }`}
+                aria-pressed={statusFilter === item.filter}
+                onClick={() => setStatusFilter(item.filter)}
+              >
+                <div className={`employee-stat-icon ${item.color}`}>
+                  <Icon size={20} strokeWidth={1.8} />
+                </div>
+
+                <div>
+                  <strong>
+                    {String(item.value).padStart(2, "0")}
+                  </strong>
+                  <span>{item.title}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="employee-page-heading">
+          <button
+            type="button"
+            className="employee-back-btn"
+            onClick={closePanel}
+          >
+            <ArrowLeft size={17} />
+            Back to Employees
+          </button>
+        </div>
+      )}
+
 
       {mode === "view" && selectedEmployee && (
+
         <div className="employee-details-card">
           <div className="employee-section-heading">
             <div>
@@ -684,100 +774,172 @@ function EmployeeManagement({ employees, setEmployees }) {
         </div>
       )}
 
-      <div className="employee-table-card">
-        <div className="employee-table-heading">
-          <div>
-            <h3>Employees</h3>
-            <p>{employees.length} employee(s) registered</p>
+      {mode === "list" && (
+        <div className="employee-table-card">
+          <div className="employee-table-heading">
+            <div>
+              <h3>Employee Directory</h3>
+              <p>Manage your workforce and employee records.</p>
+            </div>
+
+            <button
+              type="button"
+              className="employee-primary-btn employee-add-btn"
+              onClick={openAddForm}
+            >
+              <Plus size={17} />
+              Add Employee
+            </button>
           </div>
 
-          <input
-            className="employee-search"
-            type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search employees..."
-          />
-        </div>
+          <div className="employee-toolbar">
+            <div className="employee-search-box">
+              <Search size={17} />
 
-        <div className="employee-table-scroll">
-          <table className="employee-table">
-            <thead>
-              <tr>
-                <th>Employee ID</th>
-                <th>Name</th>
-                <th>Department</th>
-                <th>Designation</th>
-                <th>Joining Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+              <input
+                className="employee-search"
+                type="text"
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder="Search employees..."
+                aria-label="Search employees"
+              />
+            </div>
 
-            <tbody>
-              {filteredEmployees.map((employee) => (
-                <tr key={employee.id}>
-                  <td className="employee-id">
-                    {employee.id}
-                  </td>
+            <select
+              className="employee-filter"
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value)
+              }
+              aria-label="Filter employees by status"
+            >
+              <option value="All">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
 
-                  <td>
-                    <strong>{employee.name}</strong>
-                    <span className="employee-email">
-                      {employee.email}
-                    </span>
-                  </td>
-
-                  <td>{employee.department}</td>
-                  <td>{employee.designation}</td>
-                  <td>{employee.joiningDate}</td>
-
-                  <td>
-                    <span
-                      className={
-                        employee.status === "Active"
-                          ? "employee-status active"
-                          : "employee-status inactive"
-                      }
-                    >
-                      {employee.status}
-                    </span>
-                  </td>
-
-                  <td>
-                    <div className="employee-row-actions">
-                      <button
-                        className="employee-view-btn"
-                        onClick={() => openView(employee)}
-                      >
-                        View
-                      </button>
-
-                      <button
-                        className="employee-edit-btn"
-                        onClick={() => openEdit(employee)}
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredEmployees.length === 0 && (
+          <div className="employee-table-scroll">
+            <table className="employee-table">
+              <thead>
                 <tr>
-                  <td
-                    colSpan="7"
-                    className="employee-empty"
-                  >
-                    No employees found.
-                  </td>
+                  <th>Employee</th>
+                  <th>Department & Designation</th>
+                  <th>Joining Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {filteredEmployees.map((employee) => (
+                  <tr key={employee.id}>
+                    <td>
+                      <div className="employee-identity">
+                        <div className="employee-avatar">
+                          {getInitials(employee.name)}
+                        </div>
+
+                        <div>
+                          <strong className="employee-name">
+                            {employee.name}
+                          </strong>
+
+                          <span className="employee-email">
+                            {employee.id}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td>
+                      <strong className="employee-department">
+                        {employee.department}
+                      </strong>
+
+                      <span className="employee-email">
+                        {employee.designation}
+                      </span>
+                    </td>
+
+                    <td>{employee.joiningDate}</td>
+
+                    <td>
+                      <span
+                        className={
+                          employee.status === "Active"
+                            ? "employee-status active"
+                            : "employee-status inactive"
+                        }
+                      >
+                        <span className="employee-status-dot" />
+                        {employee.status}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div className="employee-row-actions">
+                        <button
+                          type="button"
+                          className="employee-view-btn"
+                          onClick={() => openView(employee)}
+                          title="View employee"
+                          aria-label={`View ${employee.name}`}
+                        >
+                          <Eye size={16} />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="employee-edit-btn"
+                          onClick={() => openEdit(employee)}
+                          title="Edit employee"
+                          aria-label={`Edit ${employee.name}`}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredEmployees.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="employee-empty">
+                      <div className="employee-empty-state">
+                        <Users size={30} strokeWidth={1.5} />
+                        <strong>No employees found</strong>
+                        <span>
+                          Try changing your search or status filter.
+                        </span>
+
+                        <button
+                          type="button"
+                          className="employee-secondary-btn"
+                          onClick={() => {
+                            setSearch("");
+                            setStatusFilter("All");
+                          }}
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="employee-table-footer">
+            Showing {filteredEmployees.length} of{" "}
+            {employees.length} employees
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
