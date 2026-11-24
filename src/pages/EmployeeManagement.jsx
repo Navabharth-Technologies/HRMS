@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Users,
@@ -11,6 +12,12 @@ import {
 } from "lucide-react";
 
 import "./EmployeeManagement.css";
+
+import {
+  getToday,
+  formatDuration,
+  getEmployeeAttendance,
+} from "./employeeAttendance";
 
 const departments = [
   "Development",
@@ -47,9 +54,16 @@ function createEmptyForm() {
   };
 }
 
-function EmployeeManagement({ employees, setEmployees }) {
+function EmployeeManagement({
+  employees,
+  setEmployees,
+  attendance = [],
+  shifts = [],
+  shiftAssignments = [],
+})  {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [attendanceDate, setAttendanceDate] = useState(getToday);
   const [mode, setMode] = useState("list");
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(createEmptyForm);
@@ -820,98 +834,180 @@ function EmployeeManagement({ employees, setEmployees }) {
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
+
+            <div className="employee-date-control">
+              <label htmlFor="attendance-date">
+                Attendance Date
+              </label>
+
+              <input
+                id="attendance-date"
+                type="date"
+                value={attendanceDate}
+                max={getToday()}
+                onChange={(event) => {
+                  const date = event.target.value;
+
+                  if (date && date <= getToday()) {
+                    setAttendanceDate(date);
+                  }
+                }}
+              />
+            </div>
           </div>
 
           <div className="employee-table-scroll">
-            <table className="employee-table">
+
+            <table className="employee-table employee-attendance-table">
               <thead>
                 <tr>
                   <th>Employee</th>
-                  <th>Department & Designation</th>
-                  <th>Joining Date</th>
-                  <th>Status</th>
+                  <th>Department</th>
+                  <th>Employment</th>
+                  <th>Punch In</th>
+                  <th>Punch Out</th>
+                  <th>Work Hours</th>
+                  <th>Overtime</th>
+                  <th>Attendance</th>
                   <th>Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredEmployees.map((employee) => (
-                  <tr key={employee.id}>
-                    <td>
-                      <div className="employee-identity">
-                        <div className="employee-avatar">
-                          {getInitials(employee.name)}
+                {filteredEmployees.map((employee) => {
+                  const daily = getEmployeeAttendance(
+                    employee,
+                    attendanceDate,
+                    attendance,
+                    shifts,
+                    shiftAssignments
+                  );
+
+                  return (
+                    <tr key={employee.id}>
+                      <td>
+                        <div className="employee-identity">
+                          <div className="employee-avatar">
+                            {getInitials(employee.name)}
+                          </div>
+
+                          <div>
+                            <strong className="employee-name">
+                              {employee.name}
+                            </strong>
+
+                            <span className="employee-email">
+                              {employee.id}
+                            </span>
+                          </div>
                         </div>
+                      </td>
 
-                        <div>
-                          <strong className="employee-name">
-                            {employee.name}
-                          </strong>
+                      <td>
+                        <strong className="employee-department">
+                          {employee.department}
+                        </strong>
 
+                        <span className="employee-email">
+                          {employee.designation}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span
+                          className={`employee-status ${employee.status === "Active"
+                            ? "active"
+                            : "inactive"
+                            }`}
+                        >
+                          <span className="employee-status-dot" />
+                          {employee.status}
+                        </span>
+                      </td>
+
+                      <td className="employee-time">
+                        {daily.checkIn}
+                      </td>
+
+                      <td className="employee-time">
+                        {daily.checkOut}
+                      </td>
+
+                      <td>
+                        <strong className="employee-work-hours">
+                          {formatDuration(daily.workedMinutes)}
+                        </strong>
+
+                        <span className="employee-email">
+                          {daily.shiftName}
+                        </span>
+                      </td>
+
+                      <td>
+                        <strong
+                          className={
+                            daily.overtimeMinutes > 0
+                              ? "employee-ot-value"
+                              : "employee-time"
+                          }
+                        >
+                          {formatDuration(daily.overtimeMinutes)}
+                        </strong>
+
+                        {daily.overtimeStatus && (
                           <span className="employee-email">
-                            {employee.id}
+                            {daily.overtimeStatus}
                           </span>
+                        )}
+                      </td>
+
+                      <td>
+                        <span
+                          className={`employee-attendance-status ${daily.attendanceStatus
+                            .toLowerCase()
+                            .replace(/\s+/g, "-")
+                            }`}
+                        >
+                          <span className="employee-status-dot" />
+                          {daily.attendanceStatus}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div className="employee-row-actions">
+                          <button
+                            type="button"
+                            className="employee-view-btn"
+                            onClick={() => openView(employee)}
+                            title="View employee"
+                            aria-label={`View ${employee.name}`}
+                          >
+                            <Eye size={16} />
+                          </button>
+
+                          <button
+                            type="button"
+                            className="employee-edit-btn"
+                            onClick={() => openEdit(employee)}
+                            title="Edit employee"
+                            aria-label={`Edit ${employee.name}`}
+                          >
+                            <Pencil size={16} />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-
-                    <td>
-                      <strong className="employee-department">
-                        {employee.department}
-                      </strong>
-
-                      <span className="employee-email">
-                        {employee.designation}
-                      </span>
-                    </td>
-
-                    <td>{employee.joiningDate}</td>
-
-                    <td>
-                      <span
-                        className={
-                          employee.status === "Active"
-                            ? "employee-status active"
-                            : "employee-status inactive"
-                        }
-                      >
-                        <span className="employee-status-dot" />
-                        {employee.status}
-                      </span>
-                    </td>
-
-                    <td>
-                      <div className="employee-row-actions">
-                        <button
-                          type="button"
-                          className="employee-view-btn"
-                          onClick={() => openView(employee)}
-                          title="View employee"
-                          aria-label={`View ${employee.name}`}
-                        >
-                          <Eye size={16} />
-                        </button>
-
-                        <button
-                          type="button"
-                          className="employee-edit-btn"
-                          onClick={() => openEdit(employee)}
-                          title="Edit employee"
-                          aria-label={`Edit ${employee.name}`}
-                        >
-                          <Pencil size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {filteredEmployees.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="employee-empty">
+                    <td colSpan="9" className="employee-empty">
                       <div className="employee-empty-state">
                         <Users size={30} strokeWidth={1.5} />
+
                         <strong>No employees found</strong>
+
                         <span>
                           Try changing your search or status filter.
                         </span>
@@ -932,6 +1028,7 @@ function EmployeeManagement({ employees, setEmployees }) {
                 )}
               </tbody>
             </table>
+
           </div>
 
           <div className="employee-table-footer">

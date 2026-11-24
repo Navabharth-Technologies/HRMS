@@ -427,6 +427,10 @@ function App() {
           <EmployeeManagement
             employees={employees}
             setEmployees={setEmployees}
+            attendance={attendance}
+            shifts={shifts}
+            shiftAssignments={shiftAssignments}
+            overtimeRequests={overtimeRequests}
           />
         )}
 
@@ -501,11 +505,10 @@ function App() {
 
   return (
     <div
-      className={`app ${
-        activePage === "Dashboard"
+      className={`app ${activePage === "Dashboard"
           ? "dashboard-view"
           : "module-view"
-      }`}
+        }`}
     >
       {/* Header */}
       <header className="hrms-header">

@@ -638,3 +638,145 @@
     transition: none;
   }
 }
+
+
+/* Daily attendance integration */
+
+.employee-toolbar {
+  flex-wrap: wrap;
+}
+
+.employee-date-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.employee-date-control label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.employee-date-control input {
+  padding: 10px 12px;
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.employee-date-control input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px #e0e7ff;
+}
+
+/* Compact attendance table */
+
+.employee-attendance-table {
+  min-width: 1050px;
+}
+
+.employee-attendance-table th {
+  padding: 13px 12px;
+}
+
+.employee-attendance-table td {
+  padding: 14px 12px;
+}
+
+.employee-attendance-table .employee-identity {
+  gap: 9px;
+}
+
+.employee-attendance-table .employee-avatar {
+  width: 34px;
+  height: 34px;
+}
+
+.employee-attendance-table .employee-name {
+  white-space: nowrap;
+}
+
+.employee-time,
+.employee-work-hours {
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.employee-work-hours {
+  font-weight: 600;
+}
+
+.employee-ot-value {
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+/* Attendance status */
+
+.employee-attendance-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 20px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.employee-attendance-status.present {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.employee-attendance-status.absent {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.employee-attendance-status.not-recorded,
+.employee-attendance-status.needs-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.employee-attendance-status.inactive,
+.employee-attendance-status.not-joined {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.employee-attendance-table .employee-row-actions {
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .employee-date-control {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .employee-date-control {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .employee-date-control input {
+    flex: 1;
+    min-width: 0;
+  }
+}
