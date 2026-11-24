@@ -387,8 +387,8 @@ function AttendanceManagement({
       breaks:
         correctionStatus === "Present"
           ? (original.breaks || []).map((item) => ({
-              ...item,
-            }))
+            ...item,
+          }))
           : [],
     };
 
@@ -460,10 +460,10 @@ function AttendanceManagement({
         current.map((record) =>
           record.id === request.attendanceId
             ? {
-                ...record,
-                ...request.proposed,
-                source: "Approved Biometric Correction",
-              }
+              ...record,
+              ...request.proposed,
+              source: "Approved Biometric Correction",
+            }
             : record
         )
       );
@@ -474,13 +474,13 @@ function AttendanceManagement({
         setOvertimeRequests((current) =>
           current.map((item) =>
             item.attendanceId === request.attendanceId &&
-            item.status === "Pending"
+              item.status === "Pending"
               ? {
-                  ...item,
-                  status: "Needs Review",
-                  reviewNote:
-                    "Attendance was corrected after OT generation",
-                }
+                ...item,
+                status: "Needs Review",
+                reviewNote:
+                  "Attendance was corrected after OT generation",
+              }
               : item
           )
         );
@@ -491,12 +491,12 @@ function AttendanceManagement({
       current.map((item) =>
         item.id === reviewId
           ? {
-              ...item,
-              status: decision,
-              reviewedAt: new Date().toISOString(),
-              reviewedBy: "Super Admin (Demo)",
-              reviewNote: reviewNote.trim(),
-            }
+            ...item,
+            status: decision,
+            reviewedAt: new Date().toISOString(),
+            reviewedBy: "Super Admin (Demo)",
+            reviewNote: reviewNote.trim(),
+          }
           : item
       )
     );
@@ -533,12 +533,12 @@ function AttendanceManagement({
 
   const exampleWorked = validSchedule(schedule)
     ? toMinutes(schedule.punchOut) -
-      toMinutes(schedule.punchIn) -
-      getBreaks(schedule).reduce(
-        (sum, item) =>
-          sum + toMinutes(item.end) - toMinutes(item.start),
-        0
-      )
+    toMinutes(schedule.punchIn) -
+    getBreaks(schedule).reduce(
+      (sum, item) =>
+        sum + toMinutes(item.end) - toMinutes(item.start),
+      0
+    )
     : null;
 
   return (
@@ -711,10 +711,14 @@ function AttendanceManagement({
       {tab === "simulation" && (
         <>
           <div className="attendance-card">
-            <h3>Example Working Schedule</h3>
+            <h3>Example Attendance Schedule</h3>
+
             <p className="attendance-muted">
-              These are temporary client-configurable
-              example timings, not actual biometric data.
+              These are sample biometric punch timings.
+              The calculated duration below represents this
+              example schedule, not an individual employee.
+              Individual working hours and overtime are
+              available in the Employee List.
             </p>
 
             <div className="attendance-time-grid">
@@ -743,7 +747,7 @@ function AttendanceManagement({
             </div>
 
             <div className="attendance-worked">
-              <span>Expected Net Working Hours</span>
+              <span>Simulated Net Working Hours</span>
               <strong>
                 {exampleWorked === null
                   ? "Invalid Schedule"
@@ -755,10 +759,12 @@ function AttendanceManagement({
           <div className="attendance-card">
             <h3>Simulate Biometric Data Import</h3>
             <p className="attendance-muted">
-              Imports example attendance for all active
-              employees with assigned shifts. Every third
-              employee receives one extra working hour
-              to demonstrate automatic overtime detection.
+              Imports sample attendance for active employees
+              with assigned shifts. For demonstration, every
+              third employee starting with the first receives
+              one additional working hour. View individual
+              results in the Employee List using the selected
+              attendance date.
             </p>
 
             <div className="attendance-import">

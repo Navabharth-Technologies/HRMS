@@ -3,9 +3,45 @@ import { useState } from "react";
 import "./ShiftManagement.css";
 
 function toMinutes(time) {
-  if (!time) return 0;
+  if (!time || !/^\d{2}:\d{2}$/.test(time)) {
+    return NaN;
+  }
+
   const [hours, minutes] = time.split(":").map(Number);
+
+  if (hours > 23 || minutes > 59) {
+    return NaN;
+  }
+
   return hours * 60 + minutes;
+}
+
+function durationToMinutes(value) {
+  if (!/^\d{2}:\d{2}$/.test(value)) {
+    return NaN;
+  }
+
+  const [hours, minutes] = value.split(":").map(Number);
+
+  if (minutes > 59 || hours > 24) {
+    return NaN;
+  }
+
+  const total = hours * 60 + minutes;
+
+  return total > 1440 ? NaN : total;
+}
+
+function formatDuration(minutes) {
+  if (!Number.isFinite(minutes) || minutes < 0) {
+    return "";
+  }
+
+  return (
+    String(Math.floor(minutes / 60)).padStart(2, "0") +
+    ":" +
+    String(minutes % 60).padStart(2, "0")
+  );
 }
 
 function formatMinutes(minutes) {
@@ -21,6 +57,81 @@ function createEmptyForm() {
     startTime: "",
     endTime: "",
     expectedHours: "08:00",
+    breaks: [],
+  };
+}
+
+function calculateShiftHours(form) {
+  const start = toMinutes(form.startTime);
+  const end = toMinutes(form.endTime);
+
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return { error: "Enter shift start and end times." };
+  }
+
+  if (end <= start) {
+    return { error: "Shift end must be after shift start." };
+  }
+
+  const shiftDuration = end - start;
+
+  let breakMinutes = 0;
+
+  const sortedBreaks = [...form.breaks].sort(
+    (a, b) => toMinutes(a.start) - toMinutes(b.start)
+  );
+
+  let previousEnd = start;
+
+  for (const item of sortedBreaks) {
+    const breakStart = toMinutes(item.start);
+    const breakEnd = toMinutes(item.end);
+
+    if (!item.name.trim()) {
+      return { error: "Enter a name for every break." };
+    }
+
+    if (
+      !Number.isFinite(breakStart) ||
+      !Number.isFinite(breakEnd)
+    ) {
+      return { error: "Enter all break timings." };
+    }
+
+    if (breakEnd <= breakStart) {
+      return {
+        error: `${item.name}: End must be after start.`,
+      };
+    }
+
+    if (breakStart < start || breakEnd > end) {
+      return {
+        error: `${item.name}: Break must be inside the shift.`,
+      };
+    }
+
+    if (breakStart < previousEnd) {
+      return { error: "Break timings cannot overlap." };
+    }
+
+    breakMinutes += breakEnd - breakStart;
+    previousEnd = breakEnd;
+  }
+
+  const expectedMinutes = shiftDuration - breakMinutes;
+
+  if (expectedMinutes <= 0) {
+    return {
+      error: "Expected working hours must be greater than zero.",
+    };
+  }
+
+  return {
+    shiftDuration,
+    breakMinutes,
+    expectedMinutes,
+    breaks: sortedBreaks,
+    error: "",
   };
 }
 
@@ -39,6 +150,48 @@ function ShiftManagement({
   const [assignmentShift, setAssignmentShift] = useState("");
   const [assignmentError, setAssignmentError] = useState("");
   const [search, setSearch] = useState("");
+  const shiftPreview = calculateShiftHours(form);
+
+  function addBreak() {
+    setForm((current) => ({
+      ...current,
+      breaks: [
+        ...current.breaks,
+        {
+          id: crypto.randomUUID(),
+          name: "",
+          start: "",
+          end: "",
+        },
+      ],
+    }));
+
+    setError("");
+  }
+
+  function updateBreak(id, field, value) {
+    setForm((current) => ({
+      ...current,
+      breaks: current.breaks.map((item) =>
+        item.id === id
+          ? { ...item, [field]: value }
+          : item
+      ),
+    }));
+
+    setError("");
+  }
+
+  function removeBreak(id) {
+    setForm((current) => ({
+      ...current,
+      breaks: current.breaks.filter(
+        (item) => item.id !== id
+      ),
+    }));
+
+    setError("");
+  }
 
   const activeEmployees = employees.filter(
     (employee) => employee.status === "Active"
@@ -75,6 +228,7 @@ function ShiftManagement({
     setShowForm(false);
   }
 
+
   function saveShift(event) {
     event.preventDefault();
 
@@ -87,37 +241,41 @@ function ShiftManagement({
 
     if (
       shifts.some(
-        (shift) => shift.name.toLowerCase() === name.toLowerCase()
+        (shift) =>
+          shift.name.toLowerCase() === name.toLowerCase()
       )
     ) {
       setError("A shift with this name already exists.");
       return;
     }
 
-    const expectedMinutes = toMinutes(form.expectedHours);
-
-    if (expectedMinutes <= 0 || expectedMinutes > 1440) {
-      setError("Expected working hours must be between 00:01 and 24:00.");
-      return;
-    }
+    let expectedMinutes;
+    let allowedBreakMinutes = null;
+    let shiftBreaks = [];
 
     if (form.type === "Fixed") {
-      if (!form.startTime || !form.endTime) {
-        setError("Enter the fixed shift start and end times.");
+      const result = calculateShiftHours(form);
+
+      if (result.error) {
+        setError(result.error);
         return;
       }
 
-      const shiftDuration =
-        toMinutes(form.endTime) - toMinutes(form.startTime);
+      expectedMinutes = result.expectedMinutes;
+      allowedBreakMinutes = result.breakMinutes;
+      shiftBreaks = result.breaks;
+    } else {
+      expectedMinutes = durationToMinutes(
+        form.expectedHours
+      );
 
-      if (shiftDuration <= 0) {
-        setError("Shift end must be after shift start.");
-        return;
-      }
-
-      if (expectedMinutes > shiftDuration) {
+      if (
+        !Number.isFinite(expectedMinutes) ||
+        expectedMinutes <= 0 ||
+        expectedMinutes > 1440
+      ) {
         setError(
-          "Expected working hours cannot exceed the shift duration."
+          "Enter valid working hours in HH:MM format."
         );
         return;
       }
@@ -127,14 +285,23 @@ function ShiftManagement({
       id: crypto.randomUUID(),
       name,
       type: form.type,
-      startTime: form.type === "Fixed" ? form.startTime : "",
-      endTime: form.type === "Fixed" ? form.endTime : "",
+
+      startTime:
+        form.type === "Fixed" ? form.startTime : "",
+
+      endTime:
+        form.type === "Fixed" ? form.endTime : "",
+
       expectedMinutes,
+      allowedBreakMinutes,
+      breaks: shiftBreaks,
     };
 
     setShifts((current) => [...current, newShift]);
+
     resetForm();
   }
+
 
   function assignShift(event) {
     event.preventDefault();
@@ -278,18 +445,21 @@ function ShiftManagement({
         </div>
       </div>
 
+
       {showForm && (
         <div className="shift-card">
           <h3>Create Shift</h3>
+
           <p className="shift-muted">
-            Fixed shifts have scheduled times. Flexible shifts
-            require only expected working hours.
+            Configure working timings and company-provided breaks.
           </p>
 
           <form onSubmit={saveShift} noValidate>
             <div className="shift-form-grid">
+
               <div className="shift-field">
                 <label htmlFor="shift-name">Shift Name</label>
+
                 <input
                   id="shift-name"
                   name="name"
@@ -301,6 +471,7 @@ function ShiftManagement({
 
               <div className="shift-field">
                 <label htmlFor="shift-type">Shift Type</label>
+
                 <select
                   id="shift-type"
                   name="type"
@@ -315,7 +486,10 @@ function ShiftManagement({
               {form.type === "Fixed" && (
                 <>
                   <div className="shift-field">
-                    <label htmlFor="shift-start">Start Time</label>
+                    <label htmlFor="shift-start">
+                      Shift Start Time
+                    </label>
+
                     <input
                       id="shift-start"
                       type="time"
@@ -326,7 +500,10 @@ function ShiftManagement({
                   </div>
 
                   <div className="shift-field">
-                    <label htmlFor="shift-end">End Time</label>
+                    <label htmlFor="shift-end">
+                      Shift End Time
+                    </label>
+
                     <input
                       id="shift-end"
                       type="time"
@@ -337,31 +514,220 @@ function ShiftManagement({
                   </div>
                 </>
               )}
-
-              <div className="shift-field">
-                <label htmlFor="shift-hours">
-                  Expected Net Working Hours
-                </label>
-                <input
-                  id="shift-hours"
-                  type="time"
-                  name="expectedHours"
-                  value={form.expectedHours}
-                  onChange={handleChange}
-                />
-              </div>
             </div>
 
-            {error && (
-              <p className="shift-error" role="alert">{error}</p>
+            {form.type === "Fixed" && (
+              <>
+                <div className="shift-break-section">
+
+                  <div className="shift-break-heading">
+                    <div>
+                      <h3>Company-provided Breaks</h3>
+
+                      <p className="shift-muted">
+                        Add the breaks allowed during this shift.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="shift-secondary-btn"
+                      onClick={addBreak}
+                    >
+                      + Add Break
+                    </button>
+                  </div>
+
+                  {form.breaks.length === 0 && (
+                    <div className="shift-no-breaks">
+                      No breaks configured for this shift.
+                    </div>
+                  )}
+
+                  {form.breaks.map((item, index) => (
+                    <div
+                      className="shift-break-row"
+                      key={item.id}
+                    >
+                      <div className="shift-field">
+                        <label>Break {index + 1} Name</label>
+
+                        <input
+                          aria-label={`Break ${index + 1} name`}
+                          value={item.name}
+                          placeholder="Example: Lunch"
+                          onChange={(event) =>
+                            updateBreak(
+                              item.id,
+                              "name",
+                              event.target.value
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="shift-field">
+                        <label>Break Out</label>
+
+                        <input
+                          aria-label={`Break ${index + 1} start`}
+                          type="time"
+                          value={item.start}
+                          onChange={(event) =>
+                            updateBreak(
+                              item.id,
+                              "start",
+                              event.target.value
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="shift-field">
+                        <label>Break In</label>
+
+                        <input
+                          aria-label={`Break ${index + 1} end`}
+                          type="time"
+                          value={item.end}
+                          onChange={(event) =>
+                            updateBreak(
+                              item.id,
+                              "end",
+                              event.target.value
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="shift-field">
+                        <label>Duration</label>
+
+                        <input
+                          type="text"
+                          aria-label={`Break ${index + 1} duration`}
+                          readOnly
+                          value={
+                            formatDuration(
+                              toMinutes(item.end) -
+                              toMinutes(item.start)
+                            ) || "—"
+                          }
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        className="shift-delete-btn"
+                        onClick={() => removeBreak(item.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="shift-calculation">
+
+                  <div className="shift-field">
+                    <label>Total Shift Duration</label>
+
+                    <input
+                      type="text"
+                      aria-label="Total shift duration"
+                      readOnly
+                      value={
+                        formatDuration(
+                          shiftPreview.shiftDuration
+                        ) || "—"
+                      }
+                    />
+                  </div>
+
+                  <div className="shift-field">
+                    <label>Total Allowed Breaks</label>
+
+                    <input
+                      type="text"
+                      aria-label="Total allowed breaks"
+                      readOnly
+                      value={
+                        formatDuration(
+                          shiftPreview.breakMinutes
+                        ) || "—"
+                      }
+                    />
+                  </div>
+
+                  <div className="shift-field">
+                    <label>Expected Working Hours</label>
+
+                    <input
+                      className="shift-calculated-hours"
+                      aria-label="Expected working hours"
+                      type="text"
+                      readOnly
+                      value={
+                        formatDuration(
+                          shiftPreview.expectedMinutes
+                        ) || "—"
+                      }
+                    />
+
+                    <small>Automatically calculated · HH:MM</small>
+                  </div>
+                </div>
+
+                {shiftPreview.error &&
+                  form.startTime &&
+                  form.endTime && (
+                    <p className="shift-muted">
+                      {shiftPreview.error}
+                    </p>
+                  )}
+              </>
             )}
 
-            <button type="submit" className="shift-primary-btn">
+            {form.type === "Flexible" && (
+              <div className="shift-form-grid">
+                <div className="shift-field">
+                  <label htmlFor="shift-hours">
+                    Expected Working Hours (HH:MM)
+                  </label>
+
+                  <input
+                    id="shift-hours"
+                    type="text"
+                    name="expectedHours"
+                    value={form.expectedHours}
+                    onChange={handleChange}
+                    placeholder="08:00"
+                    maxLength={5}
+                  />
+
+                  <small>
+                    Enter duration, not AM or PM.
+                  </small>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <p className="shift-error" role="alert">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="shift-primary-btn"
+            >
               Save Shift
             </button>
           </form>
         </div>
       )}
+
 
       <div className="shift-card">
         <h3>Available Shifts</h3>
@@ -376,6 +742,7 @@ function ShiftManagement({
                 <th>Shift Name</th>
                 <th>Type</th>
                 <th>Schedule</th>
+                <th>Allowed Breaks</th>
                 <th>Expected Hours</th>
                 <th>Assigned</th>
                 <th>Action</th>
@@ -399,7 +766,32 @@ function ShiftManagement({
                         ? `${shift.startTime} – ${shift.endTime}`
                         : "Flexible timing"}
                     </td>
-                    <td>{formatMinutes(shift.expectedMinutes)}</td>
+                    <td>
+                      {shift.type === "Fixed" ? (
+                        <div className="shift-break-summary">
+                          <strong>
+                            {formatDuration(
+                              shift.allowedBreakMinutes ??
+                              (
+                                toMinutes(shift.endTime) -
+                                toMinutes(shift.startTime) -
+                                shift.expectedMinutes
+                              )
+                            )}
+                          </strong>
+
+                          <small>
+                            {Array.isArray(shift.breaks)
+                              ? `${shift.breaks.length} configured breaks`
+                              : "Legacy configuration"}
+                          </small>
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+
+                    <td>{formatDuration(shift.expectedMinutes)}</td>
                     <td>{count}</td>
                     <td>
                       <button
@@ -415,7 +807,7 @@ function ShiftManagement({
 
               {shifts.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="shift-empty">
+                  <td colSpan="7" className="shift-empty">
                     No shifts configured yet.
                   </td>
                 </tr>
@@ -614,8 +1006,8 @@ function ShiftManagement({
                       {difference === null
                         ? "—"
                         : difference >= 0
-                        ? `+${formatMinutes(difference)}`
-                        : `-${formatMinutes(Math.abs(difference))}`}
+                          ? `+${formatMinutes(difference)}`
+                          : `-${formatMinutes(Math.abs(difference))}`}
                     </td>
                   </tr>
                 );

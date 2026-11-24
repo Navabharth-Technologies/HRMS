@@ -507,3 +507,64 @@
     flex-direction: column;
   }
 }
+
+
+/* Match the HRMS indigo theme */
+
+.attendance-demo {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.attendance-alert {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+.attendance-tabs button:hover,
+.attendance-tabs button.selected {
+  color: var(--primary, #4338ca);
+}
+
+.attendance-tabs button.selected {
+  border-bottom-color: var(--primary, #4338ca);
+}
+
+.attendance-primary {
+  background: var(--primary, #4338ca);
+}
+
+.attendance-primary:hover {
+  background: var(--primary-hover, #3730a3);
+}
+
+.attendance-worked strong {
+  color: var(--primary, #4338ca);
+  font-variant-numeric: tabular-nums;
+}
+
+.attendance-actions button,
+.attendance-link {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.attendance-actions button:hover,
+.attendance-link:hover {
+  background: #e0e7ff;
+}
+
+.attendance-dot {
+  background: #4338ca;
+}
+
+.attendance-time-grid input:focus,
+.attendance-import input:focus,
+.attendance-form-field input:focus,
+.attendance-form-field select:focus,
+.attendance-form-field textarea:focus {
+  border-color: #4338ca;
+  box-shadow: 0 0 0 3px #e0e7ff;
+}
