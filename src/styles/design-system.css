@@ -1,0 +1,75 @@
+/* Shared HRMS presentation layer. Existing theme tokens remain authoritative. */
+@media screen {
+:root { --ui-control-height: 40px; --ui-control-radius: 6px; --ui-control-font: 13px; }
+/* Exclude navigation, tabs, icon-only controls and selectable cards. */
+:is(.app,.hrms-slip-dialog) :is(button[class*="primary"],button[class*="secondary"],button[class*="back-btn"],button[class*="danger"],button[class*="delete"],button[class*="remove-btn"],button.policy-row-action,button.admin-status-btn,button.employee-punch-btn,button.ot-link-btn,.attendance-actions button,.attendance-review-buttons button,.loans-actions button,.loans-inline button,.hrms-pager button) {
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  min-height:var(--ui-control-height); height:auto; padding:8px 14px; border-radius:var(--ui-control-radius);
+  font:600 var(--ui-control-font)/1.35 Inter,Arial,sans-serif; text-align:center; white-space:normal;
+  border:1px solid var(--border); background:var(--surface); color:var(--primary); box-shadow:none;
+}
+:is(.app,.hrms-slip-dialog) :is(button[class*="primary"]) { background:var(--primary); border-color:var(--primary); color:white; }
+:is(.app,.hrms-slip-dialog) :is(button[class*="danger"],button[class*="delete"],button[class*="remove-btn"],button.admin-status-btn.deactivate) {color:var(--danger);border-color:var(--danger);background:var(--surface);}
+:is(.app,.hrms-slip-dialog) :is(button[class*="primary"],button[class*="secondary"],button[class*="back-btn"],button.policy-row-action,.hrms-pager button):hover:not(:disabled) {filter:brightness(.96);}
+:is(.app,.hrms-slip-dialog) button:disabled {opacity:.48;cursor:not-allowed;}
+:is(.app,.hrms-slip-dialog) :is(button,input,select,textarea):focus-visible {outline:2px solid var(--primary);outline-offset:2px;}
+.app .main :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]),select,textarea) {min-height:var(--ui-control-height);border:1px solid #cbd5e1;border-radius:var(--ui-control-radius);padding:8px 12px;font:400 13px/1.4 Inter,Arial,sans-serif;color:var(--text);background-color:var(--surface);min-width:0;}
+.app .main textarea {min-height:84px;resize:vertical;}
+.app .main :is(input[type=checkbox],input[type=radio]) {accent-color:var(--primary);}
+.app .main :is(.admin-table,.employee-table,.attendance-table,.ea-table,.role-table,.shift-table,.ot-table,.payroll-table,.policy-scroll table) th {background:var(--sidebar);color:white;font-size:12px;font-weight:600;padding:12px;text-align:left;}
+.app .main :is(.admin-table,.employee-table,.attendance-table,.ea-table,.role-table,.shift-table,.ot-table,.payroll-table,.policy-scroll table) td {font-size:13px;line-height:1.45;padding:12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.app .main :is(.admin-table,.employee-table,.attendance-table,.ea-table,.role-table,.shift-table,.ot-table,.payroll-table,.policy-scroll table) tbody tr:hover {background:var(--background);}
+.app .main :is(.admin-form-card,.admin-table-card,.employee-form-card,.employee-table-card,.employee-details-card,.attendance-card,.shift-card,.ot-card,.payroll-card,.policy-panel,.loans-panel,.role-form-card,.role-list-card,.ea-employee-card) {border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);}
+.app .main :is(.workspace-tabs,.attendance-tabs,.payroll-tabs) button {font-size:13px;min-height:40px;font-weight:500;}
+.app .main :is(.workspace-tabs,.attendance-tabs,.payroll-tabs) button:is(.active,.selected) {font-weight:600;}
+.app .main :is(.policy-row-actions,.employee-row-actions,.admin-form-actions,.role-form-actions,.shift-form-actions,.ea-form-actions,.loans-actions,.ot-actions) {gap:8px;flex-wrap:wrap;}
+.app .monthly-payroll .monthly-records-heading {justify-content:flex-start;gap:10px;}
+.app .monthly-payroll .monthly-records-heading h3 {margin-right:auto;}
+.app .monthly-payroll .payroll-selection-toolbar {margin:12px 0;}
+.app .monthly-payroll .policy-scroll td.payroll-money {text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.app .monthly-payroll .monthly-resolution summary {font-weight:600;cursor:pointer;padding-bottom:8px;}
+.app .monthly-payroll .monthly-resolution:has(summary) .policy-scroll {max-height:360px;overflow:auto;}
+.app .monthly-payroll .monthly-resolution:has(summary) thead th {position:sticky;top:0;z-index:1;}
+.app .monthly-payroll .policy-message {padding:12px 16px;border-radius:6px;line-height:1.5;}
+.app .monthly-payroll .monthly-generation .policy-actions {align-self:end;}
+.app .monthly-payroll .policy-scroll {overflow-x:auto;}
+@media(max-width:700px){.app .monthly-payroll .monthly-records-heading h3{flex-basis:100%;}.app .monthly-payroll .monthly-records-heading input{max-width:none;flex:1 1 100%;}}
+}
+
+/* Final visual refinements; scoped to screen rendering. */
+@media screen {
+.app .main :is(.employee-search-box,.admin-search-wrapper) {min-height:40px;border-radius:6px;border-color:#cbd5e1;}
+.app .main :is(.employee-search-box,.admin-search-wrapper) input:not([type=checkbox]) {border:0;box-shadow:none;background:transparent;padding:0;min-height:38px;outline:none;}
+.app .main :is(.employee-search-box,.admin-search-wrapper):focus-within {border-color:var(--primary);box-shadow:0 0 0 3px var(--accent);}
+.app .main .payroll-page {padding:0;background:transparent;}
+.app .main :is(.admin-table,.employee-table,.attendance-table,.ea-table,.role-table,.shift-table,.ot-table,.payroll-table,.policy-scroll table) tbody tr:nth-child(even) {background:var(--background);}
+.app .main :is(.admin-table,.employee-table,.attendance-table,.ea-table,.role-table,.shift-table,.ot-table,.payroll-table,.policy-scroll table) tbody tr:hover {background:var(--accent);}
+.app .main :is(.admin-table,.employee-table,.attendance-table,.ea-table,.role-table,.shift-table,.ot-table,.payroll-table,.policy-scroll table) thead tr:first-child th:first-child {border-top-left-radius:8px;}
+.app .main :is(.admin-table,.employee-table,.attendance-table,.ea-table,.role-table,.shift-table,.ot-table,.payroll-table,.policy-scroll table) thead tr:first-child th:last-child {border-top-right-radius:8px;}
+.app .payroll-status {display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:600;line-height:1.4;background:#eef2f6;color:#475569;}
+.app .payroll-status::before {content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.app .payroll-status.provisional {background:#fff3d6;color:#92400e;}
+.app .payroll-status.approved {background:var(--accent);color:var(--primary);}
+.app .payroll-status.paid {background:#dcfce7;color:#166534;}
+}
+
+/* Header, welcome and final specificity corrections. */
+@media screen {
+.app .hrms-header {display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:20px;min-height:76px;padding:12px 32px;}
+.app .header-right {justify-self:end;gap:10px;min-width:0;padding:6px 10px;border:1px solid #ffffff26;border-radius:10px;background:#ffffff08;}
+.app .header-user {display:block;text-align:left;min-width:0;}
+.app .header-user .header-account-control select {appearance:auto;display:block;width:100%;max-width:220px;min-width:120px;padding:3px 4px;border:0;border-radius:4px;background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer;}
+.app .header-account-control select option {background:var(--sidebar);color:white;}
+.app .header-user small {margin:3px 4px 0;font-size:11px;line-height:1.4;}
+.app .header-avatar {width:38px;height:38px;}
+.app .dashboard-welcome {padding:24px 28px;margin:0 0 22px;border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:var(--radius);background:var(--surface);}
+.app .dashboard-welcome .welcome-eyebrow {font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--primary);}
+.app .dashboard-welcome h2 {margin:9px 0 7px;font-size:clamp(20px,2.2vw,28px);line-height:1.25;color:var(--text);}
+.app .dashboard-welcome p {margin:0;color:var(--text-secondary);font-size:14px;line-height:1.5;}
+.app .dashboard-meta {flex-wrap:wrap;}
+.app .main :is(.employee-search-box,.admin-search-wrapper) input:is(.employee-search,.admin-search):not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]) {border:0;box-shadow:none;background:transparent;outline:none;padding:0;min-height:38px;flex:1;}
+.app .main :is(.employee-search-box,.admin-search-wrapper) {gap:10px;}
+.app .main :is(.admin-table,.employee-table,.attendance-table,.ea-table,.role-table,.shift-table,.ot-table,.payroll-table,.policy-scroll table) tbody tr:hover {background:#eef2ff;}
+@media(max-width:800px){.app .hrms-header{grid-template-columns:minmax(0,1fr) auto;padding:10px 16px;gap:8px;}.app .header-page-name{display:none;}.app .header-right{padding:4px 6px;}.app .header-user .header-account-control select{min-width:0;max-width:140px;}.app .dashboard-welcome{padding:18px;}}
+@media(max-width:380px){.app .header-right{gap:4px;}.app .header-avatar{display:none;}.app .header-user .header-account-control select{max-width:115px;}.app .header-user small{font-size:10px;}}
+}

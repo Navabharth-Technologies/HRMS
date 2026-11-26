@@ -1,23 +1,26 @@
 
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
+
 import {
   Users,
   UserCheck,
   UserMinus,
   Search,
   Plus,
-  Eye,
   Pencil,
   ArrowLeft,
+  CalendarDays,
 } from "lucide-react";
 
-import "./EmployeeManagement.css";
+import EmployeeAttendance from "./EmployeeAttendance.jsx";
 
 import {
   getToday,
   formatDuration,
   getEmployeeAttendance,
-} from "./employeeAttendance";
+} from "./attendanceUtils";
+
+import "./EmployeeManagement.css";
 
 const departments = [
   "Development",
@@ -58,22 +61,89 @@ function EmployeeManagement({
   employees,
   setEmployees,
   attendance = [],
+  setAttendance,
   shifts = [],
   shiftAssignments = [],
-})  {
+  onRequestCorrection,
+}) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [attendanceDate, setAttendanceDate] = useState(getToday);
+
   const [mode, setMode] = useState("list");
   const [selectedId, setSelectedId] = useState(null);
+
   const [form, setForm] = useState(createEmptyForm);
   const [error, setError] = useState("");
+
   const [documentType, setDocumentType] = useState("");
   const [documentName, setDocumentName] = useState("");
+
+  const pageRef = useRef(null);
+  const tableRef = useRef(null);
+  const directoryPosition = useRef(null);
 
   const selectedEmployee = employees.find(
     (employee) => employee.id === selectedId
   );
+
+  // Remember where the employee directory was scrolled
+  function rememberDirectoryPosition() {
+    if (mode !== "list") return;
+
+    const containers = [];
+    let parent = pageRef.current?.parentElement;
+
+    while (parent) {
+      if (parent.scrollHeight > parent.clientHeight) {
+        containers.push({
+          element: parent,
+          top: parent.scrollTop,
+          left: parent.scrollLeft,
+        });
+      }
+
+      parent = parent.parentElement;
+    }
+
+    directoryPosition.current = {
+      top: window.scrollY,
+      left: window.scrollX,
+      tableLeft: tableRef.current?.scrollLeft || 0,
+      containers,
+    };
+  }
+
+  // Restore the directory when returning
+  useLayoutEffect(() => {
+    if (mode === "list") {
+      const position = directoryPosition.current;
+
+      if (position) {
+        position.containers.forEach((item) => {
+          if (item.element.isConnected) {
+            item.element.scrollTop = item.top;
+            item.element.scrollLeft = item.left;
+          }
+        });
+
+        window.scrollTo({
+          top: position.top,
+          left: position.left,
+          behavior: "instant",
+        });
+
+        if (tableRef.current) {
+          tableRef.current.scrollLeft = position.tableLeft;
+        }
+      }
+    } else {
+      pageRef.current?.scrollIntoView({
+        behavior: "instant",
+        block: "start",
+      });
+    }
+  }, [mode, selectedId]);
 
   function resetForm() {
     setForm(createEmptyForm());
@@ -89,19 +159,23 @@ function EmployeeManagement({
   }
 
   function openAddForm() {
+    rememberDirectoryPosition();
     resetForm();
     setSelectedId(null);
     setMode("add");
   }
 
   function openView(employee) {
+    rememberDirectoryPosition();
     resetForm();
     setSelectedId(employee.id);
     setMode("view");
   }
 
   function openEdit(employee) {
+    rememberDirectoryPosition();
     resetForm();
+
     setSelectedId(employee.id);
 
     setForm({
@@ -112,11 +186,25 @@ function EmployeeManagement({
       designation: employee.designation,
       joiningDate: employee.joiningDate,
       status: employee.status,
-      bank: { ...employee.bank },
-      documents: employee.documents.map((doc) => ({ ...doc })),
+
+      bank: {
+        ...createEmptyForm().bank,
+        ...employee.bank,
+      },
+
+      documents: (employee.documents || []).map(
+        (doc) => ({ ...doc })
+      ),
     });
 
     setMode("edit");
+  }
+
+  function openAttendance(employee) {
+    rememberDirectoryPosition();
+
+    setSelectedId(employee.id);
+    setMode("attendance");
   }
 
   function handleChange(event) {
@@ -135,6 +223,7 @@ function EmployeeManagement({
 
     setForm((currentForm) => ({
       ...currentForm,
+
       bank: {
         ...currentForm.bank,
         [name]: value,
@@ -145,9 +234,11 @@ function EmployeeManagement({
   }
 
   function generateEmployeeId(currentEmployees) {
-    const numbers = currentEmployees.map((employee) =>
-      Number(employee.id.replace("EMP", ""))
-    );
+    const numbers = currentEmployees
+      .map((employee) =>
+        Number(employee.id.replace("EMP", ""))
+      )
+      .filter(Number.isFinite);
 
     const nextNumber = Math.max(0, ...numbers) + 1;
 
@@ -158,7 +249,9 @@ function EmployeeManagement({
     const name = documentName.trim();
 
     if (!documentType || !name) {
-      setError("Select a document type and enter a document name.");
+      setError(
+        "Select a document type and enter a document name."
+      );
       return;
     }
 
@@ -170,7 +263,11 @@ function EmployeeManagement({
 
     setForm((currentForm) => ({
       ...currentForm,
-      documents: [...currentForm.documents, newDocument],
+
+      documents: [
+        ...currentForm.documents,
+        newDocument,
+      ],
     }));
 
     setDocumentType("");
@@ -181,6 +278,7 @@ function EmployeeManagement({
   function removeDocument(documentId) {
     setForm((currentForm) => ({
       ...currentForm,
+
       documents: currentForm.documents.filter(
         (doc) => doc.id !== documentId
       ),
@@ -205,7 +303,9 @@ function EmployeeManagement({
       !designation ||
       !form.joiningDate
     ) {
-      setError("Please fill in all required employee fields.");
+      setError(
+        "Please fill in all required employee fields."
+      );
       return;
     }
 
@@ -217,7 +317,9 @@ function EmployeeManagement({
     }
 
     if (!/^[0-9]{10}$/.test(phone)) {
-      setError("Phone number must contain exactly 10 digits.");
+      setError(
+        "Phone number must contain exactly 10 digits."
+      );
       return;
     }
 
@@ -228,7 +330,24 @@ function EmployeeManagement({
     );
 
     if (emailExists) {
-      setError("An employee with this email already exists.");
+      setError(
+        "An employee with this email already exists."
+      );
+      return;
+    }
+
+    // Prevent joining date changes from invalidating attendance
+    if (
+      mode === "edit" &&
+      attendance.some(
+        (record) =>
+          record.employeeId === selectedId &&
+          record.date < form.joiningDate
+      )
+    ) {
+      setError(
+        "Joining date cannot be later than existing attendance records."
+      );
       return;
     }
 
@@ -245,12 +364,16 @@ function EmployeeManagement({
 
     if (hasBankDetails) {
       if (Object.values(bank).some((value) => !value)) {
-        setError("Please complete all bank details or leave them blank.");
+        setError(
+          "Please complete all bank details or leave them blank."
+        );
         return;
       }
 
       if (!/^[0-9]{9,18}$/.test(bank.accountNumber)) {
-        setError("Bank account number must contain 9 to 18 digits.");
+        setError(
+          "Bank account number must contain 9 to 18 digits."
+        );
         return;
       }
 
@@ -269,7 +392,10 @@ function EmployeeManagement({
       joiningDate: form.joiningDate,
       status: form.status,
       bank,
-      documents: form.documents.map((doc) => ({ ...doc })),
+
+      documents: form.documents.map(
+        (doc) => ({ ...doc })
+      ),
     };
 
     if (mode === "edit") {
@@ -298,7 +424,17 @@ function EmployeeManagement({
 
   function maskAccountNumber(number) {
     if (!number) return "Not provided";
+
     return "•••• " + number.slice(-4);
+  }
+
+  function getInitials(name) {
+    return (name || "")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((word) => word.charAt(0).toUpperCase())
+      .join("");
   }
 
   const keyword = search.trim().toLowerCase();
@@ -319,7 +455,9 @@ function EmployeeManagement({
       employee.department,
       employee.designation,
     ].some((value) =>
-      String(value || "").toLowerCase().includes(keyword)
+      String(value || "")
+        .toLowerCase()
+        .includes(keyword)
     );
 
     const matchesStatus =
@@ -328,15 +466,6 @@ function EmployeeManagement({
 
     return matchesSearch && matchesStatus;
   });
-
-  function getInitials(name) {
-    return name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((word) => word.charAt(0).toUpperCase())
-      .join("");
-  }
 
   const stats = [
     {
@@ -363,10 +492,47 @@ function EmployeeManagement({
   ];
 
   return (
-    <div className="employee-page">
+    <div
+      className="employee-page"
+      ref={pageRef}
+      style={{ scrollMarginTop: "110px" }}
+    >
 
-      {mode === "list" ? (
+      {/* Dedicated attendance screen */}
+
+      {mode === "attendance" && selectedEmployee && (
+        <EmployeeAttendance
+          key={selectedEmployee.id}
+          employee={selectedEmployee}
+          attendance={attendance}
+          setAttendance={setAttendance}
+          shifts={shifts}
+          shiftAssignments={shiftAssignments}
+          initialDate={attendanceDate}
+          onBack={closePanel}
+          onRequestCorrection={onRequestCorrection}
+        />
+      )}
+
+      {mode === "attendance" && !selectedEmployee && (
+        <div className="employee-details-card">
+          <p>Employee record could not be found.</p>
+
+          <button
+            type="button"
+            className="employee-secondary-btn"
+            onClick={closePanel}
+          >
+            Back to Employees
+          </button>
+        </div>
+      )}
+
+      {/* Employee overview */}
+
+      {mode === "list" && (
         <div className="employee-overview">
+
           {stats.map((item) => {
             const Icon = item.icon;
 
@@ -374,12 +540,20 @@ function EmployeeManagement({
               <button
                 type="button"
                 key={item.title}
-                className={`employee-stat ${statusFilter === item.filter ? "selected" : ""
+                className={`employee-stat ${statusFilter === item.filter
+                    ? "selected"
+                    : ""
                   }`}
-                aria-pressed={statusFilter === item.filter}
-                onClick={() => setStatusFilter(item.filter)}
+                aria-pressed={
+                  statusFilter === item.filter
+                }
+                onClick={() =>
+                  setStatusFilter(item.filter)
+                }
               >
-                <div className={`employee-stat-icon ${item.color}`}>
+                <div
+                  className={`employee-stat-icon ${item.color}`}
+                >
                   <Icon size={20} strokeWidth={1.8} />
                 </div>
 
@@ -387,14 +561,21 @@ function EmployeeManagement({
                   <strong>
                     {String(item.value).padStart(2, "0")}
                   </strong>
+
                   <span>{item.title}</span>
                 </div>
               </button>
             );
           })}
+
         </div>
-      ) : (
+      )}
+
+      {/* Employee profile and form navigation */}
+
+      {["view", "add", "edit"].includes(mode) && (
         <div className="employee-page-heading">
+
           <button
             type="button"
             className="employee-back-btn"
@@ -403,25 +584,34 @@ function EmployeeManagement({
             <ArrowLeft size={17} />
             Back to Employees
           </button>
+
         </div>
       )}
 
+      {/* Employee details */}
 
       {mode === "view" && selectedEmployee && (
-
         <div className="employee-details-card">
+
           <div className="employee-section-heading">
+
             <div>
               <h3>Employee Details</h3>
-              <p>Employee ID: {selectedEmployee.id}</p>
+
+              <p>
+                {selectedEmployee.name} ·{" "}
+                {selectedEmployee.id}
+              </p>
             </div>
 
             <button
+              type="button"
               className="employee-primary-btn"
               onClick={() => openEdit(selectedEmployee)}
             >
               Edit Employee
             </button>
+
           </div>
 
           <h4 className="employee-subheading">
@@ -429,6 +619,7 @@ function EmployeeManagement({
           </h4>
 
           <div className="employee-details-grid">
+
             {[
               ["Full Name", selectedEmployee.name],
               ["Email Address", selectedEmployee.email],
@@ -438,55 +629,73 @@ function EmployeeManagement({
               ["Joining Date", selectedEmployee.joiningDate],
               ["Employment Status", selectedEmployee.status],
             ].map(([label, value]) => (
-              <div className="employee-detail" key={label}>
+              <div
+                className="employee-detail"
+                key={label}
+              >
                 <span>{label}</span>
-                <strong>{value}</strong>
+                <strong>{value || "Not provided"}</strong>
               </div>
             ))}
+
           </div>
 
-          <h4 className="employee-subheading">Bank Details</h4>
+          <h4 className="employee-subheading">
+            Bank Details
+          </h4>
 
           <div className="employee-details-grid">
+
             <div className="employee-detail">
               <span>Account Holder Name</span>
+
               <strong>
-                {selectedEmployee.bank.holderName || "Not provided"}
+                {selectedEmployee.bank?.holderName ||
+                  "Not provided"}
               </strong>
             </div>
 
             <div className="employee-detail">
               <span>Bank Name</span>
+
               <strong>
-                {selectedEmployee.bank.bankName || "Not provided"}
+                {selectedEmployee.bank?.bankName ||
+                  "Not provided"}
               </strong>
             </div>
 
             <div className="employee-detail">
               <span>Account Number</span>
+
               <strong>
                 {maskAccountNumber(
-                  selectedEmployee.bank.accountNumber
+                  selectedEmployee.bank?.accountNumber
                 )}
               </strong>
             </div>
 
             <div className="employee-detail">
               <span>IFSC Code</span>
+
               <strong>
-                {selectedEmployee.bank.ifsc || "Not provided"}
+                {selectedEmployee.bank?.ifsc ||
+                  "Not provided"}
               </strong>
             </div>
+
           </div>
 
-          <h4 className="employee-subheading">Documents</h4>
+          <h4 className="employee-subheading">
+            Documents
+          </h4>
 
-          {selectedEmployee.documents.length === 0 ? (
+          {(selectedEmployee.documents || []).length === 0 ? (
             <p className="employee-muted">
               No document entries added.
             </p>
           ) : (
             <div className="employee-document-list">
+
               {selectedEmployee.documents.map((doc) => (
                 <div
                   className="employee-document-item"
@@ -498,13 +707,18 @@ function EmployeeManagement({
                   </div>
                 </div>
               ))}
+
             </div>
           )}
+
         </div>
       )}
 
+      {/* Add and edit employee form */}
+
       {(mode === "add" || mode === "edit") && (
         <div className="employee-form-card">
+
           <div className="employee-section-heading">
             <div>
               <h3>
@@ -515,20 +729,26 @@ function EmployeeManagement({
 
               <p>
                 {mode === "edit"
-                  ? `Update details for ${selectedId}`
+                  ? `Update details for ${selectedEmployee?.name || selectedId
+                  } · ${selectedId}`
                   : "Enter the employee's information."}
               </p>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
+
             <h4 className="employee-subheading">
               Personal & Employment Information
             </h4>
 
             <div className="employee-form-grid">
+
               <div className="employee-field">
-                <label htmlFor="employee-name">Full Name</label>
+                <label htmlFor="employee-name">
+                  Full Name
+                </label>
+
                 <input
                   id="employee-name"
                   name="name"
@@ -539,7 +759,10 @@ function EmployeeManagement({
               </div>
 
               <div className="employee-field">
-                <label htmlFor="employee-email">Email Address</label>
+                <label htmlFor="employee-email">
+                  Email Address
+                </label>
+
                 <input
                   id="employee-email"
                   name="email"
@@ -551,7 +774,10 @@ function EmployeeManagement({
               </div>
 
               <div className="employee-field">
-                <label htmlFor="employee-phone">Phone Number</label>
+                <label htmlFor="employee-phone">
+                  Phone Number
+                </label>
+
                 <input
                   id="employee-phone"
                   name="phone"
@@ -562,20 +788,29 @@ function EmployeeManagement({
               </div>
 
               <div className="employee-field">
-                <label htmlFor="employee-department">Department</label>
+                <label htmlFor="employee-department">
+                  Department
+                </label>
+
                 <select
                   id="employee-department"
                   name="department"
                   value={form.department}
                   onChange={handleChange}
                 >
-                  <option value="">Select department</option>
+                  <option value="">
+                    Select department
+                  </option>
 
                   {departments.map((department) => (
-                    <option key={department} value={department}>
+                    <option
+                      key={department}
+                      value={department}
+                    >
                       {department}
                     </option>
                   ))}
+
                 </select>
               </div>
 
@@ -583,6 +818,7 @@ function EmployeeManagement({
                 <label htmlFor="employee-designation">
                   Designation
                 </label>
+
                 <input
                   id="employee-designation"
                   name="designation"
@@ -596,6 +832,7 @@ function EmployeeManagement({
                 <label htmlFor="employee-joining">
                   Joining Date
                 </label>
+
                 <input
                   id="employee-joining"
                   name="joiningDate"
@@ -609,6 +846,7 @@ function EmployeeManagement({
                 <label htmlFor="employee-status">
                   Employment Status
                 </label>
+
                 <select
                   id="employee-status"
                   name="status"
@@ -619,6 +857,7 @@ function EmployeeManagement({
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+
             </div>
 
             <h4 className="employee-subheading">
@@ -626,15 +865,17 @@ function EmployeeManagement({
             </h4>
 
             <p className="employee-muted">
-              Optional for now. Complete all four fields if
-              adding bank information. Use test data only.
+              Optional for now. Complete all four fields
+              if adding bank information. Use test data only.
             </p>
 
             <div className="employee-form-grid">
+
               <div className="employee-field">
                 <label htmlFor="bank-holder">
                   Account Holder Name
                 </label>
+
                 <input
                   id="bank-holder"
                   name="holderName"
@@ -645,7 +886,10 @@ function EmployeeManagement({
               </div>
 
               <div className="employee-field">
-                <label htmlFor="bank-name">Bank Name</label>
+                <label htmlFor="bank-name">
+                  Bank Name
+                </label>
+
                 <input
                   id="bank-name"
                   name="bankName"
@@ -659,6 +903,7 @@ function EmployeeManagement({
                 <label htmlFor="bank-account">
                   Account Number
                 </label>
+
                 <input
                   id="bank-account"
                   name="accountNumber"
@@ -671,7 +916,10 @@ function EmployeeManagement({
               </div>
 
               <div className="employee-field">
-                <label htmlFor="bank-ifsc">IFSC Code</label>
+                <label htmlFor="bank-ifsc">
+                  IFSC Code
+                </label>
+
                 <input
                   id="bank-ifsc"
                   name="ifsc"
@@ -680,6 +928,7 @@ function EmployeeManagement({
                   placeholder="Example: ABCD0123456"
                 />
               </div>
+
             </div>
 
             <h4 className="employee-subheading">
@@ -687,15 +936,17 @@ function EmployeeManagement({
             </h4>
 
             <p className="employee-muted">
-              Record document names only. Actual file upload
-              will be implemented with the backend.
+              Record document names only. Actual file
+              upload will be implemented with the backend.
             </p>
 
             <div className="employee-document-form">
+
               <div className="employee-field">
                 <label htmlFor="document-type">
                   Document Type
                 </label>
+
                 <select
                   id="document-type"
                   value={documentType}
@@ -703,13 +954,16 @@ function EmployeeManagement({
                     setDocumentType(event.target.value)
                   }
                 >
-                  <option value="">Select document type</option>
+                  <option value="">
+                    Select document type
+                  </option>
 
                   {documentTypes.map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>
                   ))}
+
                 </select>
               </div>
 
@@ -717,6 +971,7 @@ function EmployeeManagement({
                 <label htmlFor="document-name">
                   Document Name
                 </label>
+
                 <input
                   id="document-name"
                   value={documentName}
@@ -734,10 +989,12 @@ function EmployeeManagement({
               >
                 + Add Document
               </button>
+
             </div>
 
             {form.documents.length > 0 && (
               <div className="employee-document-list">
+
                 {form.documents.map((doc) => (
                   <div
                     className="employee-document-item"
@@ -757,6 +1014,7 @@ function EmployeeManagement({
                     </button>
                   </div>
                 ))}
+
               </div>
             )}
 
@@ -767,6 +1025,7 @@ function EmployeeManagement({
             )}
 
             <div className="employee-form-actions">
+
               <button
                 className="employee-primary-btn"
                 type="submit"
@@ -783,17 +1042,26 @@ function EmployeeManagement({
               >
                 Cancel
               </button>
+
             </div>
+
           </form>
         </div>
       )}
 
+      {/* Employee directory */}
+
       {mode === "list" && (
         <div className="employee-table-card">
+
           <div className="employee-table-heading">
+
             <div>
               <h3>Employee Directory</h3>
-              <p>Manage your workforce and employee records.</p>
+
+              <p>
+                Manage employee information and daily attendance.
+              </p>
             </div>
 
             <button
@@ -804,10 +1072,13 @@ function EmployeeManagement({
               <Plus size={17} />
               Add Employee
             </button>
+
           </div>
 
           <div className="employee-toolbar">
+
             <div className="employee-search-box">
+
               <Search size={17} />
 
               <input
@@ -820,6 +1091,7 @@ function EmployeeManagement({
                 placeholder="Search employees..."
                 aria-label="Search employees"
               />
+
             </div>
 
             <select
@@ -836,6 +1108,7 @@ function EmployeeManagement({
             </select>
 
             <div className="employee-date-control">
+
               <label htmlFor="attendance-date">
                 Attendance Date
               </label>
@@ -853,14 +1126,21 @@ function EmployeeManagement({
                   }
                 }}
               />
+
             </div>
+
           </div>
 
-          <div className="employee-table-scroll">
+          <div
+            className="employee-table-scroll"
+            ref={tableRef}
+          >
 
             <table className="employee-table employee-attendance-table">
+
               <thead>
                 <tr>
+                  <th>Edit</th>
                   <th>Employee</th>
                   <th>Department</th>
                   <th>Employment</th>
@@ -869,11 +1149,12 @@ function EmployeeManagement({
                   <th>Work Hours</th>
                   <th>Overtime</th>
                   <th>Attendance</th>
-                  <th>Actions</th>
+                  <th>Manage Attendance</th>
                 </tr>
               </thead>
 
               <tbody>
+
                 {filteredEmployees.map((employee) => {
                   const daily = getEmployeeAttendance(
                     employee,
@@ -885,25 +1166,56 @@ function EmployeeManagement({
 
                   return (
                     <tr key={employee.id}>
+
+                      {/* Edit employee information */}
+
+                      <td className="employee-edit-cell">
+
+                        <button
+                          type="button"
+                          className="employee-edit-btn"
+                          onClick={() => openEdit(employee)}
+                          title="Edit employee information"
+                          aria-label={`Edit ${employee.name}`}
+                        >
+                          <Pencil size={16} />
+                        </button>
+
+                      </td>
+
+                      {/* Click employee name to view profile */}
+
                       <td>
+
                         <div className="employee-identity">
+
                           <div className="employee-avatar">
                             {getInitials(employee.name)}
                           </div>
 
                           <div>
-                            <strong className="employee-name">
+
+                            <button
+                              type="button"
+                              className="employee-name employee-name-link"
+                              onClick={() => openView(employee)}
+                              title="View employee details"
+                            >
                               {employee.name}
-                            </strong>
+                            </button>
 
                             <span className="employee-email">
                               {employee.id}
                             </span>
+
                           </div>
+
                         </div>
+
                       </td>
 
                       <td>
+
                         <strong className="employee-department">
                           {employee.department}
                         </strong>
@@ -911,18 +1223,21 @@ function EmployeeManagement({
                         <span className="employee-email">
                           {employee.designation}
                         </span>
+
                       </td>
 
                       <td>
+
                         <span
                           className={`employee-status ${employee.status === "Active"
-                            ? "active"
-                            : "inactive"
+                              ? "active"
+                              : "inactive"
                             }`}
                         >
                           <span className="employee-status-dot" />
                           {employee.status}
                         </span>
+
                       </td>
 
                       <td className="employee-time">
@@ -934,6 +1249,7 @@ function EmployeeManagement({
                       </td>
 
                       <td>
+
                         <strong className="employee-work-hours">
                           {formatDuration(daily.workedMinutes)}
                         </strong>
@@ -941,9 +1257,11 @@ function EmployeeManagement({
                         <span className="employee-email">
                           {daily.shiftName}
                         </span>
+
                       </td>
 
                       <td>
+
                         <strong
                           className={
                             daily.overtimeMinutes > 0
@@ -959,51 +1277,55 @@ function EmployeeManagement({
                             {daily.overtimeStatus}
                           </span>
                         )}
+
                       </td>
 
                       <td>
+
                         <span
                           className={`employee-attendance-status ${daily.attendanceStatus
-                            .toLowerCase()
-                            .replace(/\s+/g, "-")
+                              .toLowerCase()
+                              .replace(/\s+/g, "-")
                             }`}
                         >
                           <span className="employee-status-dot" />
                           {daily.attendanceStatus}
                         </span>
+
                       </td>
+
+                      {/* Manage employee attendance */}
 
                       <td>
-                        <div className="employee-row-actions">
-                          <button
-                            type="button"
-                            className="employee-view-btn"
-                            onClick={() => openView(employee)}
-                            title="View employee"
-                            aria-label={`View ${employee.name}`}
-                          >
-                            <Eye size={16} />
-                          </button>
 
-                          <button
-                            type="button"
-                            className="employee-edit-btn"
-                            onClick={() => openEdit(employee)}
-                            title="Edit employee"
-                            aria-label={`Edit ${employee.name}`}
-                          >
-                            <Pencil size={16} />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          className="employee-punch-btn employee-manage-attendance-btn"
+                          onClick={() =>
+                            openAttendance(employee)
+                          }
+                          title={`Manage attendance for ${employee.name}`}
+                        >
+                          <CalendarDays size={15} />
+                          Manage Attendance
+                        </button>
+
                       </td>
+
                     </tr>
                   );
                 })}
 
                 {filteredEmployees.length === 0 && (
                   <tr>
-                    <td colSpan="9" className="employee-empty">
+
+                    <td
+                      colSpan="10"
+                      className="employee-empty"
+                    >
+
                       <div className="employee-empty-state">
+
                         <Users size={30} strokeWidth={1.5} />
 
                         <strong>No employees found</strong>
@@ -1022,11 +1344,16 @@ function EmployeeManagement({
                         >
                           Clear Filters
                         </button>
+
                       </div>
+
                     </td>
+
                   </tr>
                 )}
+
               </tbody>
+
             </table>
 
           </div>
@@ -1035,8 +1362,10 @@ function EmployeeManagement({
             Showing {filteredEmployees.length} of{" "}
             {employees.length} employees
           </div>
+
         </div>
       )}
+
     </div>
   );
 }

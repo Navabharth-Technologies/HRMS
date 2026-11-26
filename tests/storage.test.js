@@ -1,0 +1,11 @@
+import test from 'node:test'; import assert from 'node:assert/strict';
+import {initializeStorage,exportBackup,restoreBackup,validateBackup,PREFIX,KEYS} from '../src/storage.js';
+import {makeDemoData} from '../src/demoData.js';
+const mock=()=>{const m=new Map();return {get length(){return m.size},key:i=>[...m.keys()][i],getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k)}};
+const defaults=()=>({...makeDemoData(),roles:[{id:'r'}],admins:[{id:'a',roleId:'r'}]});
+test('first launch seeds 20 employees',()=>{const s=mock();assert.equal(initializeStorage(s,defaults()),true);assert.equal(JSON.parse(s.getItem(PREFIX+'employees')).length,20)});
+test('restart preserves edited and deleted records',()=>{const s=mock();initializeStorage(s,defaults());s.setItem(PREFIX+'employees','[]');assert.equal(initializeStorage(s,defaults()),false);assert.equal(s.getItem(PREFIX+'employees'),'[]')});
+test('legacy data is not overwritten',()=>{const s=mock();s.setItem(PREFIX+'employees','[{"id":"old"}]');assert.equal(initializeStorage(s,defaults()),false);assert.equal(s.getItem(PREFIX+'employees'),'[{"id":"old"}]')});
+test('backup round trip',()=>{const s=mock(),t=mock();initializeStorage(s,defaults());const b=exportBackup(s);restoreBackup(t,b);assert.deepEqual(exportBackup(t).data,b.data)});
+test('invalid backup rejected before mutation',()=>{const s=mock();initializeStorage(s,defaults());const b=exportBackup(s);b.data.employees=[];assert.throws(()=>restoreBackup(s,b));assert.equal(JSON.parse(s.getItem(PREFIX+'employees')).length,20)});
+test('duplicate records rejected',()=>{const s=mock();initializeStorage(s,defaults());const b=exportBackup(s);b.data.employees.push(b.data.employees[0]);assert.throws(()=>validateBackup(b))});

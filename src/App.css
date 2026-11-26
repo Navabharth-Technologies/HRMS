@@ -986,3 +986,110 @@ html {
     transform: none;
   }
 }
+/* Load Demo Data action - keep the Demo Mode label unchanged */
+.dashboard-meta button.demo-tag {
+  appearance: none;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.dashboard-meta button.demo-tag:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+.dashboard-meta button.demo-tag:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.hrms-backup-action { display:inline-flex; align-items:center; position:relative; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#334155; font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+.hrms-backup-action:hover { background:#eff6ff; border-color:#2563eb; }
+.hrms-backup-action:focus-within { outline:2px solid #2563eb; }
+.hrms-backup-input { position:absolute; width:100%; height:100%; inset:0; opacity:0; cursor:pointer; }
+
+.header-user select { max-width: 190px; font: inherit; font-size: 12px; padding: 4px 7px; border: 1px solid #94a3b8; border-radius: 6px; background: #fff; color: #1e293b; }
+
+/* Administrator profile and assignment controls */
+.admin-profile-link {background:none;border:0;color:var(--primary,#2563eb);font:inherit;font-weight:600;cursor:pointer;text-align:left;padding:0;}
+.admin-profile-link:hover {text-decoration:underline;}
+.admin-page .admin-table-card > h3 {margin:0 0 16px;font-size:16px;color:var(--text,#1e293b);}
+.admin-page .admin-form-card > .admin-form-actions {display:flex;justify-content:flex-start;gap:8px;margin-bottom:20px;}
+.admin-page .admin-primary-btn:disabled {opacity:.5;cursor:not-allowed;}
+.admin-page .admin-table-scroll {overflow-x:auto;}
+.admin-page .admin-table-card > p {margin:8px 0;color:var(--text-secondary,#475569);}
+
+/* Administration detail cards: use existing slate/indigo theme tokens. */
+.admin-page .admin-table-card > h3 {
+  margin: 0;
+  padding: 18px 22px;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.admin-page .admin-table-card > p {
+  margin: 0;
+  padding: 5px 22px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.admin-page .admin-table-card > p:last-child { padding-bottom: 20px; }
+.admin-page .admin-table-card > h3:first-child:last-child { padding-bottom: 20px; }
+.admin-page .admin-table-card > h3:has(+ p) {
+  font-size: 20px;
+  padding-bottom: 8px;
+}
+.admin-page .admin-table thead th {
+  background: var(--sidebar);
+  color: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 13px 20px;
+  line-height: 1.5;
+  border-color: var(--sidebar);
+}
+.admin-page .admin-table tbody td {
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 14px 20px;
+}
+.admin-page .admin-form-card > h3 {
+  margin: 0 0 18px;
+  font-size: 16px;
+  color: var(--text);
+}
+.admin-page .admin-form-card > .admin-table-scroll {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 12px 0 18px;
+}
+.admin-page .admin-secondary-btn {
+  border-color: var(--border);
+  color: var(--primary);
+  font-weight: 600;
+}
+.admin-page .admin-secondary-btn:hover {
+  background: var(--accent);
+  border-color: var(--primary);
+  color: var(--primary-hover);
+}
+@media (max-width: 600px) {
+  .admin-page .admin-table-card > h3 { padding: 16px; }
+  .admin-page .admin-table-card > p { padding-inline: 16px; }
+}
+/* Keep navigation in its own viewport row, never over payroll controls. */
+.app {height:100dvh; overflow:hidden;}
+.app > .main {min-height:0; overflow:auto;}
+.app > .bottom-nav {position:relative; inset:auto; transform:none; flex-shrink:0; margin:8px auto 12px;}

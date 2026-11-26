@@ -1,3 +1,5 @@
+import MonthlyPayroll from "./MonthlyPayroll.jsx";
+import PayrollPolicies from "./PayrollPolicies.jsx";
 import EmployeeLoans from "./EmployeeLoans";
 import { useState } from "react";
 import "./PayrollManagement.css";
@@ -28,6 +30,7 @@ function totalSalary(amounts, components) {
     }, 0);
 }
 function PayrollManagement({
+    adminPayroll=false, monthlyProps={}, policies=[], setPolicies, isSuper, actorId, admins=[],
     employees = [],
     salaryRecords = [],
     setSalaryRecords,
@@ -253,7 +256,7 @@ function PayrollManagement({
         <div className="payroll-page">
             <div className="payroll-header">
                 <div>
-                    <h1>Payroll Management</h1>
+                    <h1>{adminPayroll ? "Admins Payroll" : "Employee Payroll"}</h1>
                     <p>Manage salary structures, components and revisions.</p>
                 </div>
 
@@ -304,6 +307,8 @@ function PayrollManagement({
             </div>
 
             <div className="payroll-tabs">
+                <button className={tab === "monthly" ? "active" : ""} onClick={() => setTab("monthly")}>Monthly Payroll</button>
+                <button className={tab === "policies" ? "active" : ""} onClick={() => setTab("policies")}>Payroll Policies</button>
                 <button
                     className={tab === "structures" ? "active" : ""}
                     onClick={() => setTab("structures")}
@@ -342,6 +347,8 @@ function PayrollManagement({
             {message && <div className="payroll-success">{message}</div>}
             {error && <div className="payroll-error">{error}</div>}
 
+            {tab === "monthly" && <MonthlyPayroll {...monthlyProps} {...{employees,policies,salaryRecords,isSuper,actorId}} loans={employeeLoans} setLoans={setEmployeeLoans}/> }
+            {tab === "policies" && <PayrollPolicies {...{policies,setPolicies,isSuper,actorId,admins}} records={monthlyProps.records}/>}
             {tab === "structures" && (
                 <div className="payroll-card">
                     <div className="payroll-card-heading">
@@ -408,7 +415,7 @@ function PayrollManagement({
                                 {filteredEmployees.length === 0 && (
                                     <tr>
                                         <td colSpan="6" className="payroll-empty">
-                                            No employees found.
+                                            {adminPayroll ? "No linked administrator employee profiles found." : "No eligible employees found."}
                                         </td>
                                     </tr>
                                 )}

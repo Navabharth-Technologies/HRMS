@@ -1,6 +1,8 @@
 
 import { useState } from "react";
 import "./ShiftManagement.css";
+import { getLocalDate, getAssignedShift as resolveShift, getAssignmentHistory, validateBulkAssignment } from "./shiftAssignment";
+import { calculateWorkedMinutes } from "./attendanceUtils.js";
 
 function toMinutes(time) {
   if (!time || !/^\d{2}:\d{2}$/.test(time)) {
@@ -146,7 +148,11 @@ function ShiftManagement({
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(createEmptyForm);
   const [error, setError] = useState("");
-  const [assignmentEmployee, setAssignmentEmployee] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [effectiveFrom, setEffectiveFrom] = useState(getLocalDate);
+  const [department, setDepartment] = useState("All");
+  const [bulkSearch, setBulkSearch] = useState("");
+  const [assignmentSuccess, setAssignmentSuccess] = useState("");
   const [assignmentShift, setAssignmentShift] = useState("");
   const [assignmentError, setAssignmentError] = useState("");
   const [search, setSearch] = useState("");
@@ -201,11 +207,8 @@ function ShiftManagement({
     return shifts.find((shift) => shift.id === id);
   }
 
-  function getAssignedShift(employeeId) {
-    const assignment = shiftAssignments.find(
-      (item) => item.employeeId === employeeId
-    );
-    return assignment ? getShift(assignment.shiftId) : null;
+  function getAssignedShift(employeeId, date = getLocalDate()) {
+    return resolveShift(employeeId, date, shifts, shiftAssignments);
   }
 
   function handleChange(event) {
@@ -303,68 +306,43 @@ function ShiftManagement({
   }
 
 
+  const departments = [...new Set(activeEmployees.map(e => e.department).filter(Boolean))];
+  const eligible = activeEmployees.filter(e =>
+    (department === "All" || e.department === department) &&
+    `${e.id} ${e.name}`.toLowerCase().includes(bulkSearch.trim().toLowerCase())
+  );
+  const allSelected = eligible.length > 0 && eligible.every(e => selectedIds.includes(e.id));
+
+  function toggleEmployee(id) {
+    setSelectedIds(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id]);
+    setAssignmentError("");
+    setAssignmentSuccess("");
+  }
+
   function assignShift(event) {
     event.preventDefault();
-
-    if (!assignmentEmployee || !assignmentShift) {
-      setAssignmentError("Select an employee and a shift.");
-      return;
-    }
-
-    const employeeExists = activeEmployees.some(
-      (employee) => employee.id === assignmentEmployee
-    );
-
-    const shiftExists = shifts.some(
-      (shift) => shift.id === assignmentShift
-    );
-
-    if (!employeeExists || !shiftExists) {
-      setAssignmentError("Select a valid active employee and shift.");
-      return;
-    }
-
-    setShiftAssignments((current) => {
-      const existing = current.some(
-        (item) => item.employeeId === assignmentEmployee
-      );
-
-      if (existing) {
-        return current.map((item) =>
-          item.employeeId === assignmentEmployee
-            ? { ...item, shiftId: assignmentShift }
-            : item
-        );
+    setAssignmentSuccess("");
+    const errors = validateBulkAssignment({ employeeIds: selectedIds, employees, shiftId: assignmentShift, shifts, effectiveFrom, assignments: shiftAssignments, attendance });
+    // Protect existing attendance affected by the new assignment, until the next scheduled shift.
+    selectedIds.forEach(id => {
+      const next = shiftAssignments.filter(a => a.employeeId === id && a.effectiveFrom > effectiveFrom).map(a => a.effectiveFrom).sort()[0];
+      if (attendance.some(r => r.employeeId === id && r.date >= effectiveFrom && (!next || r.date < next))) {
+        errors.push(`${id}: Existing attendance would be affected.`);
       }
-
-      return [
-        ...current,
-        {
-          employeeId: assignmentEmployee,
-          shiftId: assignmentShift,
-        },
-      ];
     });
-
-    setAssignmentEmployee("");
-    setAssignmentShift("");
+    if (errors.length) { setAssignmentError([...new Set(errors)].join("\n")); return; }
+    const target = getShift(assignmentShift);
+    const changes = selectedIds.map(id => `${id}: ${getAssignedShift(id, effectiveFrom)?.name || "Not Assigned"} → ${target.name}`);
+    if (!window.confirm(`Assign ${selectedIds.length} employee(s) from ${effectiveFrom}?\n${changes.join("\n")}`)) return;
+    const additions = selectedIds.map(employeeId => ({ id: crypto.randomUUID(), employeeId, shiftId: assignmentShift, effectiveFrom }));
+    setShiftAssignments(current => [...current, ...additions]);
+    setAssignmentSuccess(`${additions.length} employee(s) assigned successfully.`);
+    setSelectedIds([]);
     setAssignmentError("");
   }
 
-  function removeAssignment(employeeId) {
-    if (!window.confirm("Remove this employee's shift assignment?")) {
-      return;
-    }
-
-    setShiftAssignments((current) =>
-      current.filter((item) => item.employeeId !== employeeId)
-    );
-  }
-
   function deleteShift(id) {
-    const isAssigned = shiftAssignments.some(
-      (item) => item.shiftId === id
-    );
+    const isAssigned = shiftAssignments.some(item => item.shiftId === id) || attendance.some(record => record.shiftSnapshot?.id === id);
 
     if (isAssigned) {
       window.alert(
@@ -378,21 +356,6 @@ function ShiftManagement({
     setShifts((current) =>
       current.filter((shift) => shift.id !== id)
     );
-  }
-
-  function getWorkingMinutes(record) {
-    if (record.status !== "Present") return 0;
-
-    const total =
-      toMinutes(record.checkOut) - toMinutes(record.checkIn);
-
-    const breaks = record.breaks.reduce(
-      (sum, item) =>
-        sum + toMinutes(item.end) - toMinutes(item.start),
-      0
-    );
-
-    return total - breaks;
   }
 
   const filteredEmployees = employees.filter((employee) =>
@@ -751,9 +714,7 @@ function ShiftManagement({
 
             <tbody>
               {shifts.map((shift) => {
-                const count = shiftAssignments.filter(
-                  (item) => item.shiftId === shift.id
-                ).length;
+                const count = activeEmployees.filter(employee => getAssignedShift(employee.id)?.id === shift.id).length;
 
                 return (
                   <tr key={shift.id}>
@@ -818,61 +779,28 @@ function ShiftManagement({
       </div>
 
       <div className="shift-card">
-        <h3>Assign Shift to Employee</h3>
-        <p className="shift-muted">
-          Reassigning an employee replaces their current shift.
-        </p>
-
-        <form onSubmit={assignShift} noValidate>
+        <h3>Bulk Shift Assignment</h3>
+        <p className="shift-muted">Select a shift, effective date and active employees. Previous assignments are retained.</p>
+        <form onSubmit={assignShift}>
           <div className="shift-assignment-grid">
-            <div className="shift-field">
-              <label htmlFor="assign-employee">Employee</label>
-              <select
-                id="assign-employee"
-                value={assignmentEmployee}
-                onChange={(event) => {
-                  setAssignmentEmployee(event.target.value);
-                  setAssignmentError("");
-                }}
-              >
-                <option value="">Select employee</option>
-                {activeEmployees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.id} - {employee.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="shift-field">
-              <label htmlFor="assign-shift">Shift</label>
-              <select
-                id="assign-shift"
-                value={assignmentShift}
-                onChange={(event) => {
-                  setAssignmentShift(event.target.value);
-                  setAssignmentError("");
-                }}
-              >
-                <option value="">Select shift</option>
-                {shifts.map((shift) => (
-                  <option key={shift.id} value={shift.id}>
-                    {shift.name} ({shift.type})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button type="submit" className="shift-primary-btn">
-              Save Assignment
-            </button>
+            <div className="shift-field"><label htmlFor="assign-shift">Target shift</label><select id="assign-shift" value={assignmentShift} onChange={e => { setAssignmentShift(e.target.value); setAssignmentError(""); setAssignmentSuccess(""); }}><option value="">Select shift</option>{shifts.map(shift => <option key={shift.id} value={shift.id}>{shift.name} ({shift.type})</option>)}</select></div>
+            <div className="shift-field"><label htmlFor="effective-date">Effective date</label><input id="effective-date" type="date" min={getLocalDate()} value={effectiveFrom} onChange={e => { setEffectiveFrom(e.target.value); setAssignmentError(""); setAssignmentSuccess(""); }} /></div>
           </div>
-
-          {assignmentError && (
-            <p className="shift-error" role="alert">
-              {assignmentError}
-            </p>
-          )}
+          <div className="shift-assignment-grid">
+            <div className="shift-field"><label htmlFor="bulk-search">Search employees</label><input id="bulk-search" value={bulkSearch} onChange={e => setBulkSearch(e.target.value)} /></div>
+            <div className="shift-field"><label htmlFor="bulk-department">Department</label><select id="bulk-department" value={department} onChange={e => setDepartment(e.target.value)}><option value="All">All departments</option>{departments.map(d => <option key={d}>{d}</option>)}</select></div>
+          </div>
+          <label><input type="checkbox" checked={allSelected} disabled={!eligible.length} onChange={() => { setSelectedIds(current => allSelected ? current.filter(id => !eligible.some(e => e.id === id)) : [...new Set([...current, ...eligible.map(e => e.id)])]); setAssignmentError(""); setAssignmentSuccess(""); }} /> Select all filtered employees</label>
+          <div className="shift-table-scroll"><table className="shift-table"><thead><tr><th>Select</th><th>Employee</th><th>Department</th><th>Current shift</th><th>Shift on effective date</th></tr></thead><tbody>{eligible.map(e => <tr key={e.id}><td><input type="checkbox" aria-label={`Select ${e.name}`} checked={selectedIds.includes(e.id)} onChange={() => toggleEmployee(e.id)} /></td><td>{e.name} · {e.id}</td><td>{e.department}</td><td>{getAssignedShift(e.id)?.name || "Not Assigned"}</td><td>{getAssignedShift(e.id, effectiveFrom)?.name || "Not Assigned"}</td></tr>)}{!eligible.length && <tr><td colSpan="5">No matching active employees.</td></tr>}</tbody></table></div>
+          <div className="shift-cart">
+            <h3>Selected Employees ({selectedIds.length})</h3>
+            <button type="button" className="shift-delete-btn" onClick={() => { setSelectedIds([]); setAssignmentError(""); setAssignmentSuccess(""); }}>Clear all</button>
+            {selectedIds.map(id => <div className="shift-cart-row" key={id}><span>{employees.find(e => e.id === id)?.name || id} · {getAssignedShift(id, effectiveFrom)?.name || "Not Assigned"} → {getShift(assignmentShift)?.name || "Select shift"}</span><button type="button" className="shift-delete-btn" onClick={() => toggleEmployee(id)}>Remove</button></div>)}
+            <p>Effective from: {effectiveFrom || "—"}</p>
+            <button type="submit" className="shift-primary-btn" disabled={!selectedIds.length || !assignmentShift || !effectiveFrom}>Review and Assign ({selectedIds.length})</button>
+          </div>
+          {assignmentError && <p className="shift-error" role="alert" style={{ whiteSpace: "pre-line" }}>{assignmentError}</p>}
+          {assignmentSuccess && <p role="status">{assignmentSuccess}</p>}
         </form>
       </div>
 
@@ -903,7 +831,7 @@ function ShiftManagement({
                 <th>Shift</th>
                 <th>Type</th>
                 <th>Expected Hours</th>
-                <th>Action</th>
+                <th>Assignment History</th>
               </tr>
             </thead>
 
@@ -924,18 +852,10 @@ function ShiftManagement({
                         : "—"}
                     </td>
                     <td>
-                      {shift ? (
-                        <button
-                          className="shift-delete-btn"
-                          onClick={() =>
-                            removeAssignment(employee.id)
-                          }
-                        >
-                          Remove
-                        </button>
-                      ) : (
-                        "—"
-                      )}
+                      <details><summary>View history</summary>
+                        {getAssignmentHistory(employee.id, shiftAssignments).map((item, index) => <p key={item.id || index}>{getShift(item.shiftId)?.name || "Unknown shift"} · {item.effectiveFrom || "Legacy assignment"} · {item.assignmentStatus}</p>)}
+                        {!shiftAssignments.some(item => item.employeeId === employee.id) && <p>No assignments yet.</p>}
+                      </details>
                     </td>
                   </tr>
                 );
@@ -975,10 +895,10 @@ function ShiftManagement({
 
             <tbody>
               {attendance.map((record) => {
-                const shift = getAssignedShift(record.employeeId);
-                const worked = getWorkingMinutes(record);
+                const shift = record.shiftSnapshot || getAssignedShift(record.employeeId, record.date);
+                const worked = calculateWorkedMinutes(record);
 
-                const difference = shift && record.status === "Present"
+                const difference = shift && worked !== null
                   ? worked - shift.expectedMinutes
                   : null;
 
@@ -998,9 +918,7 @@ function ShiftManagement({
                         : "—"}
                     </td>
                     <td>
-                      {record.status === "Present"
-                        ? formatMinutes(worked)
-                        : "Absent"}
+                      {worked !== null ? formatMinutes(worked) : record.status === "Absent" ? "Absent" : "Needs Review"}
                     </td>
                     <td>
                       {difference === null

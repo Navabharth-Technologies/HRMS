@@ -568,3 +568,59 @@
   border-color: #4338ca;
   box-shadow: 0 0 0 3px #e0e7ff;
 }
+
+/* Updated attendance layout and simulation feedback */
+.attendance-page {
+  width: 100%;
+  min-width: 0;
+  padding-bottom: 90px;
+}
+.attendance-page *, .attendance-overlay * {
+  box-sizing: border-box;
+}
+.attendance-card, .attendance-stats > div {
+  min-width: 0;
+}
+.attendance-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+}
+.attendance-table {
+  min-width: 760px;
+}
+.attendance-table td {
+  font-variant-numeric: tabular-nums;
+}
+.attendance-results {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.attendance-results .attendance-warning {
+  padding: 10px 12px;
+  margin: 8px 0;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 7px;
+  color: #92400e;
+}
+.attendance-page button:focus-visible,
+.attendance-overlay button:focus-visible {
+  outline: 3px solid #a5b4fc;
+  outline-offset: 2px;
+}
+.attendance-page button:disabled,
+.attendance-overlay button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+@media (max-width: 600px) {
+  .attendance-import, .attendance-review-buttons, .attendance-actions {
+    flex-wrap: wrap;
+  }
+  .attendance-import label {
+    width: 100%;
+  }
+  .attendance-import input {
+    width: 100%;
+  }
+}

@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {makeDemoData} from '../src/demoData.js';
+import {calculateOvertime,calculateWorkedMinutes,applyAttendanceAction,getToday,undoLastPunch} from '../src/pages/attendanceUtils.js';
+import {getAssignedShift} from '../src/pages/shiftAssignment.js';
+const d=makeDemoData(), s=d.shifts[0], e=d.employees[0];
+const base={status:'Present',checkIn:'09:00',checkOut:'18:00',breaks:s.breaks.map(b=>({...b,breakId:b.id})),shiftSnapshot:s};
+for(const [name,changes,ot,short] of [['normal',{},0,0],['late departure',{checkOut:'19:00'},60,0],['early arrival',{checkIn:'08:30'},30,0],['late arrival',{checkIn:'09:30'},0,30],['early departure',{checkOut:'17:30'},0,30],['skipped breaks',{breaks:[]},0,0],['excess breaks',{breaks:[{start:'11:00',end:'13:00'}]},0,30],['offset',{checkIn:'09:30',checkOut:'19:00'},30,0]])test(name,()=>{const r=calculateOvertime({...base,...changes},s);assert.equal(r.overtimeMinutes,ot);assert.equal(r.shortageMinutes,short);});
+test('incomplete',()=>assert.equal(calculateOvertime({...base,checkOut:''},s),null));
+test('worked minutes',()=>assert.equal(calculateWorkedMinutes(base),450));
+test('future shift resolution',()=>{const a=d.shiftAssignments.find(x=>x.id==='DA-future');assert.equal(getAssignedShift(e.id,a.effectiveFrom,d.shifts,d.shiftAssignments).id,'DEMO-M');assert.equal(getAssignedShift(e.id,getToday(),d.shifts,d.shiftAssignments).id,'DEMO-G');});
+test('demo data references',()=>{assert.equal(d.employees.length,20);for(const r of d.attendance){assert.ok(d.employees.some(e=>e.id===r.employeeId));if(r.status==='Present')assert.ok(calculateWorkedMinutes(r)>0);}});
+test('punch and undo',()=>{const r=applyAttendanceAction({employee:e,date:getToday(),time:'09:00',action:'Punch In',record:null,shift:s});assert.equal(r.checkIn,'09:00');assert.equal(undoLastPunch(r),null);});

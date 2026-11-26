@@ -1,3 +1,6 @@
+import AuthGate, { AccountControls } from "./pages/AuthGate.jsx";
+import {readAccounts,validSession,SESSION_KEY} from "./authDemo.js";
+import { payrollEmployees } from "./pages/payrollScope.js";
 
 import { useState } from "react";
 import {
@@ -19,8 +22,14 @@ import ShiftManagement from "./pages/ShiftManagement";
 import OvertimeManagement from "./pages/OvertimeManagement";
 import PayrollManagement from "./pages/PayrollManagement";
 
+import { getShiftAssignment } from "./pages/shiftAssignment.js";
 import "./App.css";
+import useStoredState from "./useStoredState.js";
+import { makeDemoData } from "./demoData.js";
+import { initializeStorage, exportBackup, restoreBackup, validateBackup } from "./storage.js";
 
+import EmployeeAccess from "./pages/EmployeeAccess.jsx";
+import {allowedIds,scopedUpdate} from "./pages/adminAccess.js";
 const menuItems = [
   { icon: House, name: "Dashboard" },
   { icon: ShieldCheck, name: "Admins" },
@@ -126,6 +135,10 @@ function getToday() {
   ].join("-");
 }
 
+// Initialize before React reads stored state. Never replace existing records.
+try { initializeStorage(localStorage, { ...makeDemoData(), roles: initialRoles, admins: initialAdmins }); }
+catch (error) { console.error("HRMS storage initialization failed", error); }
+
 function App() {
   // Navigation
   const [activePage, setActivePage] = useState("Dashboard");
@@ -134,32 +147,82 @@ function App() {
   const [employeeTab, setEmployeeTab] = useState("Employee List");
 
   // Admin and employee data
-  const [roles, setRoles] = useState(initialRoles);
-  const [admins, setAdmins] = useState(initialAdmins);
-  const [employees, setEmployees] = useState(initialEmployees);
+  const [roles, setRoles] = useStoredState("roles", initialRoles);
+  const [admins, setAdmins] = useStoredState("admins", initialAdmins);
+  const [employees, setEmployees] = useStoredState("employees", initialEmployees);
 
+  const [session,setSession]=useState(()=>{try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null");}catch{return null;}});
+  const authenticated=validSession(session,admins,readAccounts());
+  const actorId=authenticated?(session.id==="super"?"":session.id):"__signed_out__";
+  const [ownership,setOwnership]=useStoredState("employeeOwnership",[]);
+  const [accessRequests,setAccessRequests]=useStoredState("employeeAccessRequests",[]);
+  const actor=admins.find(a=>a.id===actorId&&a.status==="Active");
+  const isSuper=!actorId;
+  const displayName = isSuper ? "Super Admin" : actor?.name || "Access unavailable";
+  const displayRole = isSuper ? "System Administrator" : roles.find(r => r.id === actor?.roleId)?.name || "Administrator";
+  const initials = displayName.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase();
+  const permits=module=>isSuper||!!actor&&!!roles.find(r=>r.id===actor?.roleId)?.permissions.includes(module);
+  const idsFor=module=>isSuper?employees.map(e=>e.id):allowedIds({admin:actor,employees,admins,assignments:ownership,requests:accessRequests,date:getToday(),module,roles});
+  const scoped=(rows,module,key="employeeId")=>isSuper?rows:rows.filter(r=>idsFor(module).includes(r[key]));
+  const writer=(setter,module,key="employeeId")=>isSuper?setter:update=>setter(old=>scopedUpdate(old,update,idsFor(module),key));
+  const changeActor=id=>{const next={id,version:readAccounts()[id].version};sessionStorage.setItem(SESSION_KEY,JSON.stringify(next));setSession(next);setActivePage("Dashboard");setEmployeeTab("Employee List");setAdminTab("Administrators");setCorrectionTarget(null);};
+  const logout=()=>{sessionStorage.removeItem(SESSION_KEY);setSession(null);setActivePage("Dashboard");setCorrectionTarget(null);};
+  function updateAdmins(update){const next=typeof update==="function"?update(admins):update;const disabled=admins.filter(a=>a.status==="Active"&&next.some(n=>n.id===a.id&&n.status!=="Active")).map(a=>a.id);if(disabled.length){setOwnership(old=>old.filter(a=>!(disabled.includes(a.adminId)&&a.effectiveFrom>=getToday())).concat(employees.filter(e=>disabled.includes(old.filter(a=>a.employeeId===e.id&&a.effectiveFrom<=getToday()).sort((a,b)=>b.effectiveFrom.localeCompare(a.effectiveFrom))[0]?.adminId)).map(e=>({id:crypto.randomUUID(),employeeId:e.id,adminId:null,effectiveFrom:getToday(),reason:"Administrator deactivated"}))));setAccessRequests(old=>old.map(r=>disabled.includes(r.adminId)?{...r,status:"Revoked"}:r));}setAdmins(next);}
   // Attendance
-  const [attendance, setAttendance] = useState([]);
-  const [correctionRequests, setCorrectionRequests] = useState([]);
+  const [attendance, setAttendance] = useStoredState("attendance", []);
+  const [correctionRequests, setCorrectionRequests] = useStoredState("correctionRequests", []);
+  const [correctionTarget, setCorrectionTarget] = useState(null);
 
   // Shifts
-  const [shifts, setShifts] = useState([]);
-  const [shiftAssignments, setShiftAssignments] = useState([]);
+  const [shifts, setShifts] = useStoredState("shifts", []);
+  const [shiftAssignments, setShiftAssignments] = useStoredState("shiftAssignments", []);
+
+  // Current assignments for the legacy overtime screen only
+  const currentAssignments = employees.map(employee =>
+    getShiftAssignment(employee.id, getToday(), shiftAssignments)
+  ).filter(Boolean);
 
   // Overtime
-  const [overtimeRequests, setOvertimeRequests] = useState([]);
+  const [overtimeRequests, setOvertimeRequests] = useStoredState("overtimeRequests", []);
 
   // Payroll
-  const [salaryRecords, setSalaryRecords] = useState([]);
+  const [monthlyRecords,setMonthlyRecords]=useStoredState("monthlyRecords",[]);
+  const [payrollLeaves,setPayrollLeaves]=useStoredState("payrollLeaves",[]);
+  const [payrollPolicies,setPayrollPolicies]=useStoredState("payrollPolicies",[]);
+  const [salaryRecords, setSalaryRecords] = useStoredState("salaryRecords", []);
 
-  const [salaryComponents, setSalaryComponents] = useState([
+  const [salaryComponents, setSalaryComponents] = useStoredState("salaryComponents", [
     { id: "basic", name: "Basic Salary", type: "Earning" },
     { id: "hra", name: "HRA", type: "Earning" },
     { id: "allowance", name: "Other Allowance", type: "Earning" },
   ]);
 
   // Employee loans
-  const [employeeLoans, setEmployeeLoans] = useState([]);
+  const [employeeLoans, setEmployeeLoans] = useStoredState("employeeLoans", []);
+
+  function downloadBackup() {
+    try {
+      const backup = exportBackup(localStorage);
+      validateBackup(backup);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url; link.download = `HRMS-backup-${getToday()}.json`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { window.alert(error.message); }
+  }
+
+  async function importBackup(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const backup = JSON.parse(await file.text());
+      validateBackup(backup);
+      if (!window.confirm("Restore this backup? This replaces current records. Download a current backup first if needed.")) return;
+      restoreBackup(localStorage, backup);
+      window.location.reload();
+    } catch (error) { window.alert(`Restore failed: ${error.message}`); }
+  }
 
   // Dashboard counts
   const activeAdmins = admins.filter(
@@ -183,6 +246,8 @@ function App() {
   });
 
   function navigate(page) {
+    if ((page==="Admins Payroll"&&!isSuper)||(page==="Admins"&&!isSuper)||(page==="Payroll"&&!permits("Payroll"))||(page==="Employees"&&!permits("Employees")&&!permits("Attendance"))) return;
+    if (page !== "Employees") setCorrectionTarget(null);
     setActivePage(page);
     window.scrollTo(0, 0);
   }
@@ -197,19 +262,26 @@ function App() {
     navigate("Employees");
   }
 
+  function requestCorrection(employeeId, date) {
+    const record = attendance.find(item => item.employeeId === employeeId && item.date === date);
+    if (!record || !permits("Attendance") || !idsFor("Attendance").includes(employeeId)) return;
+    setCorrectionTarget({ employeeId, date, recordId: record.id });
+    openEmployeeTab("Attendance");
+  }
+
   // Dashboard
   function renderDashboard() {
     const stats = [
       {
         title: "Total Employees",
-        value: employees.length,
+        value: scoped(employees,"Employees","id").length,
         icon: Users,
         color: "indigo",
         action: () => openEmployeeTab("Employee List"),
       },
       {
         title: "Present Today",
-        value: presentToday,
+        value: isSuper?presentToday:scoped(attendance,"Attendance").filter(r=>r.date===getToday()&&r.status==="Present").length,
         icon: UserCheck,
         color: "green",
         action: () => openEmployeeTab("Attendance"),
@@ -223,7 +295,7 @@ function App() {
       },
       {
         title: "Pending Overtime",
-        value: pendingOvertime,
+        value: isSuper?pendingOvertime:scoped(overtimeRequests,"Attendance").filter(r=>r.status==="Pending").length,
         icon: Clock,
         color: "indigo",
         action: () => openEmployeeTab("Overtime"),
@@ -246,12 +318,13 @@ function App() {
         action: () => openEmployeeTab("Employee List"),
       },
       {
-        title: "Payroll",
+        title: "Employee Payroll",
         icon: Wallet,
         description:
           "Manage salary structures and employee loans.",
         action: () => navigate("Payroll"),
       },
+      ...(isSuper?[{title:"Admins Payroll",icon:Wallet,description:"Manage administrator salaries.",action:()=>navigate("Admins Payroll")}]:[]),
     ];
 
     return (
@@ -272,12 +345,20 @@ function App() {
             </span>
 
             <span className="demo-tag">Demo Mode</span>
+            {isSuper&&<><button type="button" className="hrms-backup-action" onClick={downloadBackup}>Download Backup</button>
+            <label className="hrms-backup-action">Restore Backup<input type="file" accept=".json,application/json" onChange={importBackup} className="hrms-backup-input" /></label></>}
           </div>
         </div>
 
+        <section className="dashboard-welcome" aria-label="Welcome">
+          <span className="welcome-eyebrow">Your HR workspace</span>
+          <h2>Great workplaces start with great people.</h2>
+          <p>Welcome back, {displayName}. Let's make today productive.</p>
+        </section>
+
         {/* Statistics cards */}
         <div className="dashboard-stats">
-          {stats.map((item) => {
+          {stats.filter(item=>isSuper||(item.title==="Total Employees"?permits("Employees"):item.title!=="Active Admins"&&permits("Attendance"))).map((item) => {
             const Icon = item.icon;
 
             return (
@@ -317,7 +398,7 @@ function App() {
         </div>
 
         <div className="module-cards">
-          {modules.map((item) => {
+          {modules.filter(item=>isSuper||(item.title==="Employees"?(permits("Employees")||permits("Attendance")):item.title==="Payroll"&&permits("Payroll"))).map((item) => {
             const Icon = item.icon;
 
             return (
@@ -361,7 +442,7 @@ function App() {
         </div>
 
         <div className="workspace-tabs">
-          {["Administrators", "Roles & Permissions"].map((tab) => (
+          {["Administrators", "Roles & Responsibilities", "Assign Employees"].map((tab) => (
             <button
               type="button"
               key={tab}
@@ -373,15 +454,22 @@ function App() {
           ))}
         </div>
 
+        {adminTab === "Administrators" && <AccountControls admins={admins} roles={roles} setAdmins={updateAdmins}/>}
         {adminTab === "Administrators" && (
           <AdminManagement
             roles={roles}
             admins={admins}
-            setAdmins={setAdmins}
+            setAdmins={updateAdmins}
+            assignments={ownership}
+            requests={accessRequests}
+            today={getToday()}
+            employees={employees}
+            setEmployees={setEmployees}
           />
         )}
 
-        {adminTab === "Roles & Permissions" && (
+        {adminTab === "Assign Employees" && <EmployeeAccess admins={admins} employees={employees} assignments={ownership} setAssignments={setOwnership} requests={accessRequests} setRequests={setAccessRequests} today={getToday()}/>}
+        {adminTab === "Roles & Responsibilities" && (
           <RoleManagement
             roles={roles}
             setRoles={setRoles}
@@ -399,7 +487,8 @@ function App() {
       "Attendance",
       "Shifts",
       "Overtime",
-    ];
+    ].filter(tab=>isSuper||(tab==="Employee List"?permits("Employees"):tab!=="Shifts"&&permits("Attendance")));
+    const tab=tabs.includes(employeeTab)?employeeTab:tabs[0];
 
     return (
       <div className="hrms-workspace">
@@ -416,39 +505,42 @@ function App() {
               type="button"
               key={tab}
               className={employeeTab === tab ? "active" : ""}
-              onClick={() => setEmployeeTab(tab)}
+              onClick={() => { setCorrectionTarget(null); setEmployeeTab(tab); }}
             >
               {tab}
             </button>
           ))}
         </div>
 
-        {employeeTab === "Employee List" && (
+        {tab === "Employee List" && (
           <EmployeeManagement
-            employees={employees}
-            setEmployees={setEmployees}
-            attendance={attendance}
+            employees={scoped(employees,"Employees","id")}
+            setEmployees={writer(setEmployees,"Employees","id")}
+            attendance={scoped(attendance,"Employees")}
+            setAttendance={permits("Attendance")?writer(setAttendance,"Attendance"):()=>{}}
             shifts={shifts}
-            shiftAssignments={shiftAssignments}
-            overtimeRequests={overtimeRequests}
+            shiftAssignments={scoped(shiftAssignments,"Employees")}
+            onRequestCorrection={permits("Attendance")?requestCorrection:undefined}
           />
         )}
 
-        {employeeTab === "Attendance" && (
+        {tab === "Attendance" && (
           <AttendanceManagement
-            employees={employees}
-            attendance={attendance}
-            setAttendance={setAttendance}
-            correctionRequests={correctionRequests}
-            setCorrectionRequests={setCorrectionRequests}
+            key={correctionTarget?.recordId || "attendance"}
+            initialCorrectionTarget={correctionTarget}
+            employees={scoped(employees,"Attendance","id")}
+            attendance={scoped(attendance,"Attendance")}
+            setAttendance={writer(setAttendance,"Attendance")}
+            correctionRequests={scoped(correctionRequests,"Attendance")}
+            setCorrectionRequests={writer(setCorrectionRequests,"Attendance")}
             shifts={shifts}
-            shiftAssignments={shiftAssignments}
-            overtimeRequests={overtimeRequests}
-            setOvertimeRequests={setOvertimeRequests}
+            shiftAssignments={scoped(shiftAssignments,"Attendance")}
+            overtimeRequests={scoped(overtimeRequests,"Attendance")}
+            setOvertimeRequests={writer(setOvertimeRequests,"Attendance")}
           />
         )}
 
-        {employeeTab === "Shifts" && (
+        {tab === "Shifts" && (
           <ShiftManagement
             employees={employees}
             shifts={shifts}
@@ -459,14 +551,14 @@ function App() {
           />
         )}
 
-        {employeeTab === "Overtime" && (
+        {tab === "Overtime" && (
           <OvertimeManagement
-            employees={employees}
-            attendance={attendance}
+            employees={scoped(employees,"Attendance","id")}
+            attendance={scoped(attendance,"Attendance")}
             shifts={shifts}
-            shiftAssignments={shiftAssignments}
-            overtimeRequests={overtimeRequests}
-            setOvertimeRequests={setOvertimeRequests}
+            shiftAssignments={scoped(currentAssignments,"Attendance")}
+            overtimeRequests={scoped(overtimeRequests,"Attendance")}
+            setOvertimeRequests={writer(setOvertimeRequests,"Attendance")}
           />
         )}
       </div>
@@ -480,21 +572,27 @@ function App() {
         return renderDashboard();
 
       case "Admins":
-        return renderAdmins();
+        return isSuper?renderAdmins():renderDashboard();
+      case "Access":
+        return actor?<EmployeeAccess actor={actor} admins={admins} employees={employees} assignments={ownership} requests={accessRequests} setRequests={setAccessRequests} today={getToday()}/>:renderDashboard();
 
       case "Employees":
-        return renderEmployees();
+        return permits("Employees")||permits("Attendance")?renderEmployees():renderDashboard();
 
+      case "Admins Payroll":
       case "Payroll":
+        if(!permits("Payroll")||(activePage==="Admins Payroll"&&!isSuper))return renderDashboard();
         return (
-          <PayrollManagement
-            employees={employees}
-            salaryRecords={salaryRecords}
-            setSalaryRecords={setSalaryRecords}
+          <PayrollManagement key={activePage} monthlyProps={{attendance:scoped(attendance,"Payroll"),shifts,assignments:scoped(shiftAssignments,"Payroll"),records:scoped(monthlyRecords,"Payroll"),setRecords:writer(setMonthlyRecords,"Payroll"),leaves:scoped(payrollLeaves,"Payroll"),setLeaves:writer(setPayrollLeaves,"Payroll"),ownership}}
+            policies={payrollPolicies} setPolicies={setPayrollPolicies} isSuper={isSuper} actorId={actorId} admins={admins}
+            adminPayroll={activePage==="Admins Payroll"}
+            employees={payrollEmployees(scoped(employees,"Payroll","id"),admins,activePage==="Admins Payroll")}
+            salaryRecords={scoped(salaryRecords,"Payroll")}
+            setSalaryRecords={writer(setSalaryRecords,"Payroll")}
             salaryComponents={salaryComponents}
-            setSalaryComponents={setSalaryComponents}
-            employeeLoans={employeeLoans}
-            setEmployeeLoans={setEmployeeLoans}
+            setSalaryComponents={isSuper?setSalaryComponents:()=>{}}
+            employeeLoans={scoped(employeeLoans,"Payroll")}
+            setEmployeeLoans={writer(setEmployeeLoans,"Payroll")}
           />
         );
 
@@ -503,11 +601,13 @@ function App() {
     }
   }
 
+  if(!authenticated)return <AuthGate key="login" admins={admins} onLogin={changeActor}/>;
+  if(readAccounts()[session.id]?.temporary)return <AuthGate key="change" admins={admins} changeId={session.id} onLogin={changeActor} onLogout={logout}/>;
   return (
     <div
       className={`app ${activePage === "Dashboard"
-          ? "dashboard-view"
-          : "module-view"
+        ? "dashboard-view"
+        : "module-view"
         }`}
     >
       {/* Header */}
@@ -531,12 +631,14 @@ function App() {
         </div>
 
         <div className="header-right">
+          <div className="header-avatar" aria-hidden="true">{initials}</div>
           <div className="header-user">
-            <strong>Super Admin</strong>
-            <small>System Administrator</small>
+            <div className="header-account-control">
+              <strong>{displayName}</strong>
+            </div>
+            <small>{displayRole}</small>
           </div>
-
-          <div className="header-avatar">SA</div>
+          <button className="auth-logout" onClick={logout}>Sign out</button>
         </div>
       </header>
 
@@ -552,7 +654,7 @@ function App() {
         className="bottom-nav"
         aria-label="Main navigation"
       >
-        {menuItems.map((item) => {
+        {[...menuItems,...(!isSuper?[{icon:ShieldCheck,name:"Access"}]:[])].filter(item=>isSuper||item.name==="Dashboard"||item.name==="Access"||(item.name==="Employees"&&(permits("Employees")||permits("Attendance")))||(item.name==="Payroll"&&permits("Payroll"))).map((item) => {
           const Icon = item.icon;
 
           return (

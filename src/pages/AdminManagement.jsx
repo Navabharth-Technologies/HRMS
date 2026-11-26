@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import "./AdminManagement.css";
+import {ownerOf} from "./adminAccess.js";
 
 const emptyForm = {
   name: "",
@@ -20,7 +21,8 @@ const emptyForm = {
   role: "",
 };
 
-function AdminManagement({ roles, admins, setAdmins }) {
+function AdminManagement({ roles, admins, setAdmins, employees, setEmployees, assignments=[], requests=[], today }) {
+  const [profileId,setProfileId]=useState(null);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -75,7 +77,12 @@ function AdminManagement({ roles, admins, setAdmins }) {
       return;
     }
 
+    const existing=employees.find(e=>e.email.toLowerCase()===email);
+    if(existing&&(existing.status!=="Active"||admins.some(a=>a.employeeId===existing.id))){setError("Employee is inactive or already linked.");return;}
+    const employeeId=existing?.id||"EMP"+crypto.randomUUID();
+    if(!existing){if(!window.confirm("Create an employee profile for this administrator?"))return;setEmployees(old=>[...old,{id:employeeId,name,email,phone:"",department:"Human Resources",designation:"Administrator",joiningDate:new Date().toLocaleDateString("en-CA"),status:"Active",bank:{},documents:[]}]);}
     const newAdmin = {
+      employeeId,
       id: crypto.randomUUID(),
       name,
       email,
@@ -96,6 +103,7 @@ function AdminManagement({ roles, admins, setAdmins }) {
     setSuccess(`${name} has been added successfully.`);
   }
 
+  function linkProfile(admin){const existing=employees.find(e=>e.email.toLowerCase()===admin.email.toLowerCase());if(existing&&admins.some(a=>a.id!==admin.id&&a.employeeId===existing.id)){setError("Employee already linked.");return;}const id=existing?.id||"EMP"+crypto.randomUUID();if(!existing){if(!window.confirm("Create employee profile?"))return;setEmployees(old=>[...old,{id,name:admin.name,email:admin.email,phone:"",department:"Human Resources",designation:"Administrator",joiningDate:new Date().toLocaleDateString("en-CA"),status:"Active",bank:{},documents:[]}]);}setAdmins(old=>old.map(a=>a.id===admin.id?{...a,employeeId:id}:a));}
   function toggleStatus(admin) {
     const newStatus =
       admin.status === "Active" ? "Inactive" : "Active";
@@ -166,6 +174,8 @@ function AdminManagement({ roles, admins, setAdmins }) {
 
   const inactiveCount = admins.length - activeCount;
 
+  const profile=admins.find(a=>a.id===profileId);
+  if(profile){const employee=employees.find(e=>e.id===profile.employeeId);const assigned=employees.filter(e=>ownerOf(e.id,assignments,today)===profile.id);return <div className="admin-page"><div><button className="admin-secondary-btn" onClick={()=>setProfileId(null)}>← Back to Administrators</button></div><div className="admin-table-card"><h3>{profile.name}</h3><p>{profile.email} · {getRoleName(profile.roleId)} · {profile.status}</p><p>Employee ID: {employee?.id||'Not linked'} · {employee?.department||'—'} · {employee?.designation||'—'}</p><p>Responsibilities: {roles.find(r=>String(r.id)===String(profile.roleId))?.permissions?.join(', ')||'None'}</p></div><div className="admin-table-card"><h3>Assigned Employees ({assigned.length})</h3><div className="admin-table-scroll"><table className="admin-table"><thead><tr><th>Employee</th><th>Department</th><th>Designation</th></tr></thead><tbody>{assigned.map(e=><tr key={e.id}><td>{e.name} · {e.id}</td><td>{e.department}</td><td>{e.designation}</td></tr>)}{!assigned.length&&<tr><td colSpan="3">No employees assigned.</td></tr>}</tbody></table></div></div><div className="admin-table-card"><h3>Assignment History</h3><div className="admin-table-scroll"><table className="admin-table"><thead><tr><th>Employee</th><th>Effective date</th><th>Reason</th><th>Status</th></tr></thead><tbody>{assignments.filter(a=>a.adminId===profile.id).map(a=><tr key={a.id}><td>{employees.find(e=>e.id===a.employeeId)?.name||a.employeeId}</td><td>{a.effectiveFrom}</td><td>{a.reason}</td><td>{a.effectiveFrom>today?'Upcoming':assignments.some(b=>b.employeeId===a.employeeId&&b.effectiveFrom>a.effectiveFrom&&b.effectiveFrom<=today)?'Previous':'Current'}</td></tr>)}</tbody></table></div></div><div className="admin-table-card"><h3>Temporary Coverage</h3>{requests.filter(r=>r.adminId===profile.id&&r.kind==='Temporary'&&r.status==='Approved'&&r.start<=today&&r.end>=today).map(r=><p key={r.id}>{employees.find(e=>e.id===r.employeeId)?.name||r.employeeId} · {r.start} – {r.end}</p>)}</div></div>}
   return (
     <div className="admin-page">
 
@@ -186,6 +196,7 @@ function AdminManagement({ roles, admins, setAdmins }) {
         </div>
       )}
 
+      {!showForm&&error&&<div className="admin-error" role="alert">{error}</div>}
       {/* Add administrator form */}
       {showForm && (
         <div className="admin-form-card">
@@ -378,7 +389,7 @@ function AdminManagement({ roles, admins, setAdmins }) {
               <tr>
                 <th scope="col">Administrator</th>
                 <th scope="col">Email Address</th>
-                <th scope="col">Assigned Role</th>
+                <th scope="col">Assigned Role</th><th>Employee Profile</th>
                 <th scope="col">Status</th>
                 <th scope="col">Action</th>
               </tr>
@@ -393,9 +404,7 @@ function AdminManagement({ roles, admins, setAdmins }) {
                         {getInitials(admin.name)}
                       </div>
 
-                      <span className="admin-name">
-                        {admin.name}
-                      </span>
+                      <button className="admin-name admin-profile-link" onClick={()=>setProfileId(admin.id)}>{admin.name}</button>
                     </div>
                   </td>
 
@@ -410,6 +419,7 @@ function AdminManagement({ roles, admins, setAdmins }) {
                     </span>
                   </td>
 
+                  <td>{admin.employeeId||<button className="admin-secondary-btn" onClick={()=>linkProfile(admin)}>Link Profile</button>}</td>
                   <td>
                     <span
                       className={`admin-status ${
@@ -449,7 +459,7 @@ function AdminManagement({ roles, admins, setAdmins }) {
 
               {filteredAdmins.length === 0 && (
                 <tr>
-                  <td colSpan="5">
+                  <td colSpan="6">
                     <div className="admin-empty">
                       <div className="admin-empty-icon">
                         {search ? (

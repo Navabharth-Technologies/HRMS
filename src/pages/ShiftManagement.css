@@ -3,7 +3,16 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  width: 100%;
+  min-width: 0;
+  padding-bottom: 80px;
 }
+
+.shift-page * {
+  box-sizing: border-box;
+}
+
+/* Page heading */
 
 .shift-heading,
 .shift-table-heading {
@@ -27,23 +36,32 @@
   line-height: 1.6;
 }
 
+/* Buttons */
+
 .shift-primary-btn,
-.shift-delete-btn {
+.shift-delete-btn,
+.shift-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 11px 18px;
   border-radius: 8px;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .shift-primary-btn {
   color: #ffffff;
-  background: var(--primary, #2563eb);
-  border: 1px solid var(--primary, #2563eb);
+  background: var(--primary, #4338ca);
+  border: 1px solid var(--primary, #4338ca);
 }
 
-.shift-primary-btn:hover {
-  background: var(--primary-hover, #1d4ed8);
+.shift-primary-btn:hover:not(:disabled) {
+  background: var(--primary-hover, #3730a3);
 }
 
 .shift-delete-btn {
@@ -53,9 +71,32 @@
   border: 1px solid #fecaca;
 }
 
-.shift-delete-btn:hover {
+.shift-delete-btn:hover:not(:disabled) {
   background: #fef2f2;
 }
+
+.shift-secondary-btn {
+  color: var(--primary, #4338ca);
+  background: #ffffff;
+  border: 1px solid #c7d2fe;
+}
+
+.shift-secondary-btn:hover:not(:disabled) {
+  background: #eef2ff;
+  border-color: #818cf8;
+}
+
+.shift-page button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shift-page button:focus-visible {
+  outline: 3px solid #a5b4fc;
+  outline-offset: 2px;
+}
+
+/* Shift overview */
 
 .shift-stats {
   display: grid;
@@ -65,6 +106,7 @@
 
 .shift-stat,
 .shift-card {
+  min-width: 0;
   padding: 24px;
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, #e2e8f0);
@@ -91,7 +133,10 @@
   margin: 0 0 8px;
   color: var(--text, #1e293b);
   font-size: 16px;
+  font-weight: 650;
 }
+
+/* Shift configuration form */
 
 .shift-form-grid {
   display: grid;
@@ -117,11 +162,14 @@
 .shift-field select,
 .shift-search {
   width: 100%;
+  min-width: 0;
+  min-height: 42px;
   padding: 11px 12px;
   background: #ffffff;
   color: var(--text, #1e293b);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: 8px;
+  font-family: inherit;
   font-size: 13px;
   outline: none;
 }
@@ -129,23 +177,215 @@
 .shift-field input:focus,
 .shift-field select:focus,
 .shift-search:focus {
-  border-color: var(--primary, #2563eb);
-  box-shadow: 0 0 0 3px var(--accent, #dbeafe);
+  border-color: var(--primary, #4338ca);
+  box-shadow: 0 0 0 3px var(--accent, #eef2ff);
 }
 
-.shift-error {
-  margin: 16px 0;
-  color: #b91c1c;
-  font-size: 12px;
+.shift-field small {
+  color: var(--text-secondary, #64748b);
+  font-size: 11px;
+  line-height: 1.5;
 }
+
+.shift-field input[readonly] {
+  background: #f8fafc;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+/* Dynamic break configuration */
+
+.shift-break-section {
+  margin: 24px 0;
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+}
+
+.shift-break-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.shift-break-row {
+  display: grid;
+  grid-template-columns:
+    minmax(140px, 1.5fr)
+    minmax(110px, 1fr)
+    minmax(110px, 1fr)
+    minmax(80px, 0.7fr)
+    auto;
+  align-items: end;
+  gap: 14px;
+  padding: 16px;
+  margin-top: 12px;
+  background: #ffffff;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 9px;
+}
+
+.shift-break-row .shift-delete-btn {
+  min-height: 42px;
+}
+
+.shift-no-breaks {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary, #64748b);
+  font-size: 13px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+/* Working hours calculation */
+
+.shift-calculation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  padding: 20px;
+  margin: 24px 0;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+}
+
+.shift-field input.shift-calculated-hours {
+  background: #ffffff;
+  color: var(--primary, #4338ca);
+  border-color: #a5b4fc;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.shift-break-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.shift-break-summary small {
+  color: var(--text-secondary, #64748b);
+  font-size: 11px;
+}
+
+/* Bulk shift assignment */
 
 .shift-assignment-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
   align-items: end;
-  margin: 24px 0 0;
+  margin: 24px 0 20px;
 }
+
+.shift-assignment-grid select {
+  cursor: pointer;
+}
+
+.shift-assignment-grid input[type="date"] {
+  cursor: pointer;
+}
+
+/* Employee selection checkboxes */
+
+.shift-page input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--primary, #4338ca);
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.shift-page input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shift-card form > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin: 22px 0 14px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Employee selection cart */
+
+.shift-cart {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 24px;
+  padding: 22px;
+  background: #f8fafc;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+}
+
+.shift-cart h3 {
+  margin: 0;
+  color: #312e81;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.shift-cart > .shift-delete-btn {
+  align-self: flex-end;
+  font-size: 12px;
+}
+
+.shift-cart-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.shift-cart-row span {
+  min-width: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.shift-cart-row .shift-delete-btn {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.shift-cart > p {
+  margin: 6px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.shift-cart > .shift-primary-btn {
+  align-self: flex-end;
+  min-height: 42px;
+}
+
+/* Search and table heading */
 
 .shift-table-heading {
   margin-bottom: 24px;
@@ -155,14 +395,19 @@
   max-width: 270px;
 }
 
+/* Tables */
+
 .shift-table-scroll {
   width: 100%;
   overflow-x: auto;
   margin-top: 20px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 9px;
 }
 
 .shift-table {
   width: 100%;
+  min-width: 650px;
   border-collapse: collapse;
   text-align: left;
   font-size: 13px;
@@ -182,20 +427,35 @@
   padding: 16px 14px;
   color: var(--text, #1e293b);
   border-bottom: 1px solid var(--border, #e2e8f0);
+  vertical-align: middle;
+}
+
+.shift-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .shift-table tbody tr:hover {
   background: #f8fafc;
 }
 
+.shift-table tbody tr:has(input[type="checkbox"]:checked) {
+  background: #eef2ff;
+}
+
+.shift-table td:has(input[type="checkbox"]) {
+  width: 70px;
+  text-align: center;
+}
+
 .shift-type {
   display: inline-block;
   padding: 6px 10px;
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: #4338ca;
+  background: #e0e7ff;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .shift-empty {
@@ -204,7 +464,95 @@
   color: var(--text-secondary, #64748b) !important;
 }
 
+/* Shift assignment history */
+
+.shift-table details {
+  min-width: 130px;
+}
+
+.shift-table details summary {
+  width: fit-content;
+  padding: 7px 10px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shift-table details summary:hover {
+  background: #e0e7ff;
+}
+
+.shift-table details[open] {
+  min-width: 220px;
+}
+
+.shift-table details[open] summary {
+  margin-bottom: 12px;
+}
+
+.shift-table details p {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #818cf8;
+  border-radius: 6px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+/* Error and success messages */
+
+.shift-error {
+  margin: 16px 0;
+  padding: 12px 14px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.shift-card p[role="status"] {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Tablet layout */
+
+@media (max-width: 1000px) {
+  .shift-break-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shift-stat,
+  .shift-card {
+    padding: 20px;
+  }
+}
+
+/* Mobile layout */
+
 @media (max-width: 700px) {
+  .shift-page {
+    gap: 16px;
+  }
+
   .shift-heading,
   .shift-table-heading {
     flex-direction: column;
@@ -219,142 +567,24 @@
 
   .shift-stat,
   .shift-card {
-    padding: 18px;
+    padding: 16px;
   }
 
   .shift-search {
     max-width: none;
   }
-}
 
+  .shift-cart {
+    padding: 16px;
+  }
 
-/* Shift break configuration */
+  .shift-cart-row {
+    gap: 12px;
+    padding: 12px;
+  }
 
-.shift-break-section {
-  margin: 24px 0;
-  padding: 20px;
-  background: #f8fafc;
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: 12px;
-}
-
-.shift-break-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.shift-secondary-btn {
-  padding: 10px 16px;
-  background: white;
-  color: var(--primary, #4338ca);
-  border: 1px solid #c7d2fe;
-  border-radius: 8px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.shift-secondary-btn:hover {
-  background: #eef2ff;
-  border-color: #818cf8;
-}
-
-.shift-break-row {
-  display: grid;
-  grid-template-columns:
-    minmax(140px, 1.5fr)
-    minmax(110px, 1fr)
-    minmax(110px, 1fr)
-    minmax(80px, 0.7fr)
-    auto;
-  align-items: end;
-  gap: 14px;
-  padding: 16px;
-  margin-top: 12px;
-  background: white;
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: 9px;
-}
-
-.shift-break-row .shift-delete-btn {
-  min-height: 38px;
-}
-
-.shift-no-breaks {
-  padding: 24px;
-  text-align: center;
-  color: var(--text-secondary, #64748b);
-  font-size: 13px;
-  background: white;
-  border: 1px dashed #cbd5e1;
-  border-radius: 8px;
-}
-
-.shift-calculation {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  padding: 20px;
-  margin: 24px 0;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  border-radius: 12px;
-}
-
-.shift-field input[readonly] {
-  background: #f8fafc;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  cursor: default;
-}
-
-.shift-field input.shift-calculated-hours {
-  background: white;
-  color: var(--primary, #4338ca);
-  border-color: #a5b4fc;
-  font-size: 19px;
-  font-weight: 700;
-}
-
-.shift-field small {
-  color: var(--text-secondary, #64748b);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.shift-break-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.shift-break-summary small {
-  color: var(--text-secondary, #64748b);
-  font-size: 11px;
-}
-
-.shift-type {
-  background: #e0e7ff;
-  color: #4338ca;
-}
-
-.shift-card button {
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.shift-card button:focus-visible {
-  outline: 3px solid #a5b4fc;
-  outline-offset: 2px;
-}
-
-@media (max-width: 1000px) {
-  .shift-break-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .shift-cart > .shift-primary-btn {
+    align-self: stretch;
   }
 }
 
@@ -372,10 +602,24 @@
   .shift-break-section {
     padding: 14px;
   }
+
+  .shift-cart-row {
+    flex-wrap: wrap;
+  }
+
+  .shift-cart-row span {
+    flex-basis: 100%;
+  }
+
+  .shift-cart-row .shift-delete-btn {
+    margin-left: auto;
+  }
 }
 
+/* Reduce animations if required */
+
 @media (prefers-reduced-motion: reduce) {
-  .shift-card button {
+  .shift-page button {
     transition: none;
   }
 }

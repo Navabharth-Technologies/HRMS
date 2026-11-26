@@ -311,3 +311,53 @@
     font-size: 22px;
   }
 }
+.policy-panel{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:24px}.policy-panel h2,.policy-panel h3{margin:0 0 16px}.policy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:24px 0}.policy-grid label{display:flex;flex-direction:column;gap:6px;font-size:14px}.policy-grid input:not([type=checkbox]){padding:10px;border:1px solid #cbd5e1;border-radius:6px;min-width:0}.policy-grid fieldset{border:1px solid #cbd5e1;border-radius:6px;display:flex;gap:8px;flex-wrap:wrap}.policy-scroll{overflow:auto}.policy-scroll table{width:100%;border-collapse:collapse}.policy-scroll th{background:#202B39;color:white;text-align:left}.policy-scroll th,.policy-scroll td{padding:12px;border-bottom:1px solid #e2e8f0}.policy-scroll button{border:1px solid #cbd5e1;border-radius:6px;background:white;padding:6px 10px;cursor:pointer}
+
+/* Payroll policy layout — scoped to this tab only. */
+.policy-panel .policy-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start}
+.policy-panel .policy-grid input:not([type=checkbox]){box-sizing:border-box;width:100%;min-height:42px;font:inherit;background:#fff}
+.policy-panel .policy-days,.policy-panel .policy-holidays,.policy-panel .policy-preview,.policy-panel .policy-actions{grid-column:1/-1}
+.policy-panel .policy-days{padding:12px;gap:10px;margin:0;min-width:0}
+.policy-panel .policy-days label{flex-direction:row;align-items:center;padding:9px 14px;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer}
+.policy-panel .policy-days label.selected{background:#4338CA;color:white;border-color:#4338CA}
+.policy-panel .policy-days input{accent-color:#4338CA}
+.policy-holiday-entry{display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.policy-panel .policy-holiday-entry input{max-width:260px}
+.policy-panel .policy-grid .payroll-primary{height:auto;min-height:42px;width:auto;align-self:center;padding:10px 18px}
+.policy-panel .payroll-primary:disabled{opacity:.5;cursor:not-allowed}
+.policy-holiday-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.policy-holiday-list span{display:flex;align-items:center;gap:10px;background:#F5F6F8;border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px}
+.policy-holiday-list button{border:0;background:transparent;cursor:pointer;font-size:18px;color:#202B39}
+.policy-preview{display:flex;flex-direction:column;gap:8px;background:#F5F6F8;border-radius:8px;padding:16px;color:#202B39}
+.policy-actions{display:flex;justify-content:flex-end}
+.policy-message{padding:12px;background:#F5F6F8;border-left:3px solid #4338CA;border-radius:4px}
+.policy-panel .policy-scroll th{background:#202B39;color:white;padding:14px 12px;font-size:13px}
+.policy-panel .policy-scroll td{padding:14px 12px;font-size:13px}
+@media(max-width:900px){.policy-panel .policy-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.policy-panel .policy-grid{grid-template-columns:1fr}.policy-panel{padding:16px}}
+
+.policy-row-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.policy-row-action,.policy-row-actions button{border:1px solid #cbd5e1;background:#fff;color:#4338ca;border-radius:6px;padding:7px 12px;font:inherit;cursor:pointer;white-space:nowrap}.policy-row-actions .policy-delete{color:#202b39}.policy-row-action:hover,.policy-row-actions button:hover{background:#f5f6f8}
+
+/* Monthly payroll layout only */
+.monthly-payroll .monthly-generation{align-items:end}
+.monthly-payroll .monthly-generation .policy-actions{grid-column:auto;align-self:end}
+.monthly-payroll .monthly-resolution{border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin:20px 0}
+.monthly-payroll .monthly-resolution .policy-grid{margin-bottom:0;align-items:end}
+.monthly-payroll .monthly-resolution .payroll-primary{justify-self:end}
+.monthly-payroll .policy-grid select{width:100%;min-height:42px;box-sizing:border-box;font:inherit;border:1px solid #cbd5e1;border-radius:6px;padding:8px;background:white}
+.monthly-payroll .monthly-leave-info{font-size:14px;color:#475569;margin:0;align-self:center}
+.monthly-payroll .monthly-records-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 12px}
+.monthly-payroll .monthly-records-heading h3{margin:0}
+.monthly-payroll .monthly-empty{text-align:center;padding:32px;color:#64748b}
+.monthly-payroll button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:600px){.monthly-payroll .monthly-generation .policy-actions{justify-content:flex-start}.monthly-payroll .monthly-resolution{padding:12px}}
+
+/* Payroll preview and paginated records */
+.monthly-payroll{margin-bottom:90px}.hrms-pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:12px 0;flex-wrap:wrap}.hrms-pager span{margin-right:auto;color:#475569;font-size:13px}.hrms-pager button{border:1px solid #cbd5e1;border-radius:6px;background:white;padding:8px 12px;color:#4338ca}.monthly-payroll .monthly-records-heading input{border:1px solid #cbd5e1;border-radius:6px;padding:10px;max-width:220px}.monthly-payroll .monthly-records-heading{flex-wrap:wrap}.monthly-payroll .policy-scroll td:nth-child(n+3):nth-child(-n+8){font-variant-numeric:tabular-nums}.hrms-slip-dialog{border:1px solid #cbd5e1;border-radius:12px;padding:0;width:min(760px,94vw);max-height:90vh;color:#202b39;background:white;overflow:auto}.hrms-slip-dialog::backdrop{background:#0f172a99}.hrms-slip-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 24px;background:#f5f6f8}.hrms-slip{padding:28px;font:14px Arial,sans-serif;color:#202b39}.hrms-slip header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #4338ca;padding-bottom:14px}.hrms-slip header strong{font-size:24px}.hrms-slip small{display:block;color:#475569;margin-top:8px}.hrms-slip-warning{padding:12px;background:#f5f6f8;border-left:3px solid #4338ca;font-weight:bold}.hrms-slip dl{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}.hrms-slip dt{color:#64748b;font-size:12px}.hrms-slip dd{margin:4px 0 0;font-weight:600}.hrms-slip-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}.hrms-slip-columns section{border:1px solid #cbd5e1;border-radius:6px;overflow:hidden}.hrms-slip-columns h3{margin:0;background:#202b39;color:white;padding:12px;font-size:14px}.hrms-slip-line{display:flex;justify-content:space-between;gap:8px;padding:12px;border-bottom:1px solid #e2e8f0}.hrms-slip-net{display:flex;justify-content:space-between;background:#f5f6f8;padding:18px;margin:20px 0;font-size:18px}.hrms-slip-net strong:last-child{color:#4338ca}@media(max-width:600px){.hrms-slip-columns,.hrms-slip dl{grid-template-columns:1fr}.hrms-slip{padding:16px}}@media print{body:has(.hrms-slip-dialog[open])>*:not(.hrms-slip-dialog){display:none!important}.hrms-slip-dialog[open]{position:static!important;display:block!important;width:100%!important;max-width:none!important;max-height:none!important;border:0!important;overflow:visible!important;margin:0!important}.hrms-slip-dialog::backdrop,.hrms-slip-toolbar{display:none!important}.hrms-slip{padding:12mm;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+/* Final payroll table polish */
+.monthly-payroll .payroll-selection-toolbar { margin: 12px 0; align-items: center; }
+.monthly-payroll td.payroll-money { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.monthly-payroll .monthly-records-heading { flex-wrap: wrap; gap: 10px; }
+.monthly-payroll details > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+.monthly-payroll { margin-bottom: 90px; }

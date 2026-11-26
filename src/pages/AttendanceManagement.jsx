@@ -2,48 +2,11 @@
 import { useState } from "react";
 import "./AttendanceManagement.css";
 
-const DEFAULT_SCHEDULE = {
-  punchIn: "09:00",
-  morningOut: "11:00",
-  morningIn: "11:15",
-  lunchOut: "13:00",
-  lunchIn: "14:00",
-  afternoonOut: "15:00",
-  afternoonIn: "15:15",
-  punchOut: "18:00",
-};
+import { getAssignedShift, createShiftSnapshot } from "./shiftAssignment.js";
+import { calculateWorkedMinutes, calculateOvertime, getAttendanceStatus, formatDuration, toMinutes } from "./attendanceUtils.js";
 
-const EVENT_FIELDS = [
-  ["punchIn", "Punch In"],
-  ["morningOut", "Break Out"],
-  ["morningIn", "Break In"],
-  ["lunchOut", "Lunch Out"],
-  ["lunchIn", "Lunch In"],
-  ["afternoonOut", "Break Out"],
-  ["afternoonIn", "Break In"],
-  ["punchOut", "Punch Out"],
-];
-
-function toMinutes(time) {
-  if (!time) return NaN;
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function formatMinutes(minutes) {
-  const value = Math.max(0, minutes);
-  const hours = Math.floor(value / 60);
-  const mins = value % 60;
-  return `${hours}h ${String(mins).padStart(2, "0")}m`;
-}
-
-function timeFromMinutes(minutes) {
-  return (
-    String(Math.floor(minutes / 60)).padStart(2, "0") +
-    ":" +
-    String(minutes % 60).padStart(2, "0")
-  );
-}
+function formatMinutes(minutes) { return formatDuration(minutes); }
+function timeFromMinutes(minutes) { return String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0"); }
 
 function today() {
   const now = new Date();
@@ -57,37 +20,7 @@ function makeId() {
   return crypto.randomUUID();
 }
 
-function getBreaks(schedule) {
-  return [
-    {
-      start: schedule.morningOut,
-      end: schedule.morningIn,
-    },
-    {
-      start: schedule.lunchOut,
-      end: schedule.lunchIn,
-    },
-    {
-      start: schedule.afternoonOut,
-      end: schedule.afternoonIn,
-    },
-  ];
-}
-
-function workedMinutes(record) {
-  if (record.status !== "Present") return 0;
-
-  const total =
-    toMinutes(record.checkOut) - toMinutes(record.checkIn);
-
-  const breaks = (record.breaks || []).reduce(
-    (sum, item) =>
-      sum + toMinutes(item.end) - toMinutes(item.start),
-    0
-  );
-
-  return total - breaks;
-}
+function workedMinutes(record) { return calculateWorkedMinutes(record); }
 
 function snapshot(record) {
   return JSON.stringify({
@@ -101,51 +34,8 @@ function snapshot(record) {
   });
 }
 
-function validSchedule(schedule) {
-  const values = EVENT_FIELDS.map(([field]) =>
-    toMinutes(schedule[field])
-  );
-
-  if (values.some((value) => !Number.isFinite(value))) {
-    return false;
-  }
-
-  return values.every(
-    (value, index) =>
-      index === 0 || value > values[index - 1]
-  );
-}
-
 function validAttendance(record) {
-  if (record.status === "Absent") return true;
-
-  if (!record.checkIn || !record.checkOut) return false;
-
-  const start = toMinutes(record.checkIn);
-  const end = toMinutes(record.checkOut);
-
-  if (!(end > start)) return false;
-
-  let previous = start;
-
-  for (const item of record.breaks || []) {
-    const breakStart = toMinutes(item.start);
-    const breakEnd = toMinutes(item.end);
-
-    if (
-      !Number.isFinite(breakStart) ||
-      !Number.isFinite(breakEnd) ||
-      breakStart < previous ||
-      breakEnd <= breakStart ||
-      breakEnd > end
-    ) {
-      return false;
-    }
-
-    previous = breakEnd;
-  }
-
-  return workedMinutes(record) > 0;
+  return record.status === "Absent" || calculateWorkedMinutes(record) !== null;
 }
 
 function AttendanceManagement({
@@ -158,12 +48,12 @@ function AttendanceManagement({
   shiftAssignments = [],
   overtimeRequests = [],
   setOvertimeRequests,
+  initialCorrectionTarget,
 }) {
-  const [schedule, setSchedule] =
-    useState(DEFAULT_SCHEDULE);
 
-  const [date, setDate] = useState(today());
-  const [search, setSearch] = useState("");
+  const initialRecord = attendance.find(record => record.id === initialCorrectionTarget?.recordId && employees.some(employee => employee.id === record.employeeId && employee.status === "Active"));
+  const [date, setDate] = useState(initialRecord?.date || today());
+  const [search, setSearch] = useState(initialRecord?.employeeId || "");
   const [tab, setTab] = useState("records");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -171,11 +61,11 @@ function AttendanceManagement({
   const [selectedRecordId, setSelectedRecordId] =
     useState(null);
 
-  const [correctionId, setCorrectionId] = useState(null);
+  const [correctionId, setCorrectionId] = useState(initialRecord?.id || null);
   const [correctionStatus, setCorrectionStatus] =
-    useState("Present");
-  const [correctedIn, setCorrectedIn] = useState("");
-  const [correctedOut, setCorrectedOut] = useState("");
+    useState(initialRecord?.status || "Present");
+  const [correctedIn, setCorrectedIn] = useState(initialRecord?.checkIn || "");
+  const [correctedOut, setCorrectedOut] = useState(initialRecord?.checkOut || "");
   const [correctionReason, setCorrectionReason] =
     useState("");
 
@@ -190,158 +80,45 @@ function AttendanceManagement({
     return employees.find((employee) => employee.id === id);
   }
 
-  function getShift(employeeId) {
-    const assignment = shiftAssignments.find(
-      (item) => item.employeeId === employeeId
-    );
-
-    return shifts.find(
-      (shift) => shift.id === assignment?.shiftId
-    );
-  }
-
   function simulateImport() {
     setError("");
     setResult(null);
-
-    if (!date || date > today()) {
-      setError("Choose today or an earlier date.");
-      return;
-    }
-
-    if (!validSchedule(schedule)) {
-      setError("Schedule timings must be in the correct order.");
-      return;
-    }
-
-    if (typeof setOvertimeRequests !== "function") {
-      setError(
-        "Overtime state is not connected in App.jsx."
-      );
-      return;
-    }
-
-    const existing = new Set(
-      attendance.map(
-        (item) => `${item.employeeId}|${item.date}`
-      )
-    );
-
+    if (!date || date > today()) { setError("Choose today or an earlier date."); return; }
+    const existing = new Set(attendance.map(item => `${item.employeeId}|${item.date}`));
     const newRecords = [];
-    const newOT = [];
     const exceptions = [];
-
+    let overtime = 0;
     activeEmployees.forEach((employee, index) => {
+      const skip = message => exceptions.push({ name: employee.name, message });
       const key = `${employee.id}|${date}`;
-
-      if (existing.has(key)) {
-        exceptions.push({
-          name: employee.name,
-          message: "Attendance already imported",
-        });
-        return;
-      }
-
-      const shift = getShift(employee.id);
-
-      if (!shift) {
-        exceptions.push({
-          name: employee.name,
-          message: "Shift not assigned",
-        });
-        return;
-      }
-
-      // Demo only: every third employee works 1 extra hour.
-      const extra = index % 3 === 0 ? 60 : 0;
-
-      const punchOutMinutes =
-        toMinutes(schedule.punchOut) + extra;
-
-      if (punchOutMinutes >= 1440) {
-        exceptions.push({
-          name: employee.name,
-          message: "Punch-out exceeds same-day limit",
-        });
-        return;
-      }
-
+      if (existing.has(key)) return skip("Attendance already exists");
+      if (employee.joiningDate && date < employee.joiningDate) return skip("Before joining date");
+      const shift = getAssignedShift(employee.id, date, shifts, shiftAssignments);
+      if (!shift) return skip("Shift not assigned for this date");
+      if (shift.type !== "Fixed") return skip("Flexible shift: use individual simulation");
+      const end = toMinutes(shift.endTime);
+      if (!Number.isFinite(end)) return skip("Invalid shift end time");
+      const extra = index % 3 === 0 && end + 60 < 1440 ? 60 : 0;
       const record = {
-        id: makeId(),
-        employeeId: employee.id,
-        date,
-        status: "Present",
-        checkIn: schedule.punchIn,
-        checkOut: timeFromMinutes(punchOutMinutes),
-        breaks: getBreaks(schedule),
-        source: "Biometric Simulation",
+        id: makeId(), employeeId: employee.id, date, status: "Present",
+        checkIn: shift.startTime, checkOut: timeFromMinutes(end + extra),
+        breaks: (shift.breaks || []).map(item => ({breakId: item.id, name: item.name, start: item.start, end: item.end, type: "Scheduled"})),
+        source: "Biometric Simulation", shiftSnapshot: createShiftSnapshot(shift),
       };
-
-      if (!validAttendance(record)) {
-        exceptions.push({
-          name: employee.name,
-          message: "Invalid punch sequence",
-        });
-        return;
-      }
-
+      if (!validAttendance(record)) return skip("Invalid punch sequence");
       newRecords.push(record);
       existing.add(key);
-
-      const worked = workedMinutes(record);
-
-      const eligible = Math.max(
-        0,
-        worked - shift.expectedMinutes
-      );
-
-      if (eligible > 0) {
-        newOT.push({
-          id: makeId(),
-          attendanceId: record.id,
-          employeeId: employee.id,
-          employeeName: employee.name,
-          date,
-          shiftId: shift.id,
-          shiftName: shift.name,
-          expectedMinutes: shift.expectedMinutes,
-          workedMinutes: worked,
-          eligibleMinutes: eligible,
-          requestedMinutes: eligible,
-          attendanceSnapshot: snapshot(record),
-          reason: "Automatically detected from biometric attendance",
-          status: "Pending",
-          requestedAt: new Date().toISOString(),
-          reviewedAt: null,
-          reviewedBy: null,
-          reviewNote: "",
-          source: "Automatic Biometric OT",
-        });
-      }
+      if ((calculateOvertime(record, shift)?.overtimeMinutes || 0) > 0) overtime++;
     });
-
-    if (newRecords.length) {
-      setAttendance((current) => [
-        ...current,
-        ...newRecords,
-      ]);
-    }
-
-    if (newOT.length) {
-      setOvertimeRequests((current) => [
-        ...current,
-        ...newOT,
-      ]);
-    }
-
-    setResult({
-      imported: newRecords.length,
-      overtime: newOT.length,
-      exceptions,
+    setAttendance(current => {
+      const keys = new Set(current.map(item => `${item.employeeId}|${item.date}`));
+      return [...current, ...newRecords.filter(item => !keys.has(`${item.employeeId}|${item.date}`))];
     });
+    setResult({ imported: newRecords.length, overtime, exceptions });
   }
 
   function openCorrection(record) {
+    if (getEmployee(record.employeeId)?.status !== "Active") { setError("Inactive employee records are read-only."); return; }
     setCorrectionId(record.id);
     setCorrectionStatus(record.status);
     setCorrectedIn(record.checkIn || "");
@@ -356,6 +133,7 @@ function AttendanceManagement({
     );
 
     if (!original) return;
+    if (getEmployee(original.employeeId)?.status !== "Active") { setError("Inactive employee records are read-only."); return; }
 
     const alreadyPending = correctionRequests.some(
       (request) =>
@@ -436,7 +214,7 @@ function AttendanceManagement({
       (item) => item.id === reviewId
     );
 
-    if (!request || !reviewNote.trim()) {
+    if (!request || request.status !== "Pending" || !reviewNote.trim()) {
       setError("A review note is required.");
       return;
     }
@@ -474,7 +252,7 @@ function AttendanceManagement({
         setOvertimeRequests((current) =>
           current.map((item) =>
             item.attendanceId === request.attendanceId &&
-              item.status === "Pending"
+              ["Pending", "Approved"].includes(item.status)
               ? {
                 ...item,
                 status: "Needs Review",
@@ -531,16 +309,6 @@ function AttendanceManagement({
     (request) => request.status === "Pending"
   );
 
-  const exampleWorked = validSchedule(schedule)
-    ? toMinutes(schedule.punchOut) -
-    toMinutes(schedule.punchIn) -
-    getBreaks(schedule).reduce(
-      (sum, item) =>
-        sum + toMinutes(item.end) - toMinutes(item.start),
-      0
-    )
-    : null;
-
   return (
     <div className="attendance-page">
       <div className="attendance-title">
@@ -577,7 +345,7 @@ function AttendanceManagement({
           <strong>{pendingCorrections.length}</strong>
         </div>
         <div>
-          <span>Pending Overtime</span>
+          <span>Legacy Pending Overtime</span>
           <strong>
             {overtimeRequests.filter(
               (item) => item.status === "Pending"
@@ -663,7 +431,7 @@ function AttendanceManagement({
                               : "attendance-status absent"
                           }
                         >
-                          {record.status}
+                          {employee ? getAttendanceStatus(employee, record.date, record) : record.status}
                         </span>
                       </td>
                       <td>{record.checkIn || "—"}</td>
@@ -711,60 +479,9 @@ function AttendanceManagement({
       {tab === "simulation" && (
         <>
           <div className="attendance-card">
-            <h3>Example Attendance Schedule</h3>
-
-            <p className="attendance-muted">
-              These are sample biometric punch timings.
-              The calculated duration below represents this
-              example schedule, not an individual employee.
-              Individual working hours and overtime are
-              available in the Employee List.
-            </p>
-
-            <div className="attendance-time-grid">
-              {EVENT_FIELDS.map(([field, label], index) => (
-                <label key={field}>
-                  <span>
-                    {label}
-                    {(index === 1 || index === 2) &&
-                      " (Morning)"}
-                    {(index === 5 || index === 6) &&
-                      " (Afternoon)"}
-                  </span>
-                  <input
-                    type="time"
-                    value={schedule[field]}
-                    onChange={(event) => {
-                      setSchedule((current) => ({
-                        ...current,
-                        [field]: event.target.value,
-                      }));
-                      setError("");
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
-
-            <div className="attendance-worked">
-              <span>Simulated Net Working Hours</span>
-              <strong>
-                {exampleWorked === null
-                  ? "Invalid Schedule"
-                  : formatMinutes(exampleWorked)}
-              </strong>
-            </div>
-          </div>
-
-          <div className="attendance-card">
             <h3>Simulate Biometric Data Import</h3>
             <p className="attendance-muted">
-              Imports sample attendance for active employees
-              with assigned shifts. For demonstration, every
-              third employee starting with the first receives
-              one additional working hour. View individual
-              results in the Employee List using the selected
-              attendance date.
+              Uses the fixed shift assigned on the selected date, including its configured breaks. Every third active employee receives one extra hour when it fits within the same day. Flexible shifts require individual simulation. Existing records are never overwritten.
             </p>
 
             <div className="attendance-import">
@@ -796,7 +513,7 @@ function AttendanceManagement({
                 </p>
                 <p>
                   <strong>{result.overtime}</strong>{" "}
-                  overtime candidates generated
+                  records with automatic overtime
                 </p>
                 <p>
                   <strong>{result.exceptions.length}</strong>{" "}
@@ -898,15 +615,11 @@ function AttendanceManagement({
                   ...(selectedRecord.breaks || []).flatMap(
                     (item, index) => [
                       [
-                        index === 1
-                          ? "Lunch Out"
-                          : "Break Out",
+                        `${item.name || "Break"} Out`,
                         item.start,
                       ],
                       [
-                        index === 1
-                          ? "Lunch In"
-                          : "Break In",
+                        `${item.name || "Break"} In`,
                         item.end,
                       ],
                     ]
